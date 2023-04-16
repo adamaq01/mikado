@@ -1,0 +1,32 @@
+[package]
+name = "mikado"
+version = "0.1.0"
+authors = ["Adam Thibert <adamthibert01@gmail.com>"]
+edition = "2021"
+license = "MIT"
+readme = "README.md"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+strip = true  # Automatically strip symbols from the binary.
+lto = true  # Enable link-time optimization.
+codegen-units = 1
+panic = "abort"
+
+[dependencies]
+winapi = { version = "0.3", features = ["minwindef", "windef", "winuser", "libloaderapi", "processthreadsapi", "winbase", "consoleapi"] }
+crochet = "0.2"
+log = "0.4"
+env_logger = "0.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+confy = "0.5"
+anyhow = "1.0"
+lazy_static = "1.4"
+ureq = { version = "2.6", features = ["json"] }
+url = "2.3"
+either = { version = "1.8", features = ["serde"] }
+num_enum = "0.6"
+chrono = "0.4"

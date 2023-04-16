@@ -1,0 +1,23 @@
+[general]
+# Set to 'false' to disable the hook
+enable = true
+# Whether the hook should export your class (skill level) or not
+export_class = true
+
+[cards]
+# Card numbers that should be whitelisted
+# If this is empty, all cards will be whitelisted
+whitelist = []
+
+[tachi]
+# Tachi instance base URL
+base_url = 'https://kamaitachi.xyz/'
+
+# Tachi status endpoint
+status = '/api/v1/status'
+
+# Tachi score import endpoint
+import = '/ir/direct-manual/import'
+
+# Your Tachi API key
+api_key = 'your-key-here'
