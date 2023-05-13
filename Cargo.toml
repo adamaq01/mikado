@@ -11,9 +11,6 @@ crate-type = ["cdylib"]
 
 [profile.release]
 strip = true  # Automatically strip symbols from the binary.
-lto = true  # Enable link-time optimization.
-codegen-units = 1
-panic = "abort"
 
 [dependencies]
 winapi = { version = "0.3", features = ["minwindef", "windef", "winuser", "libloaderapi", "processthreadsapi", "winbase", "consoleapi"] }
