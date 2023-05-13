@@ -113,8 +113,10 @@ pub fn hook_release() -> Result<()> {
         return Ok(());
     }
 
-    crochet::disable!(property_destroy_hook)
-        .map_err(|err| anyhow::anyhow!("Could not disable function detour: {:#}", err))?;
+    if crochet::is_enabled!(property_destroy_hook) {
+        crochet::disable!(property_destroy_hook)
+            .map_err(|err| anyhow::anyhow!("Could not disable function detour: {:#}", err))?;
+    }
 
     Ok(())
 }
