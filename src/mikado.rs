@@ -1,7 +1,7 @@
 use crate::configuration::Configuration;
+use crate::handlers::save::process_save;
+use crate::handlers::scores::process_scores;
 use crate::log::Logger;
-use crate::save::process_course;
-use crate::scores::process_scores;
 use crate::sys::{
     property_clear_error, property_mem_write, property_node_name, property_node_refer,
     property_query_size, property_search, property_set_flag, NodeType,
@@ -219,11 +219,11 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
         "sv6_save" => serde_json::from_str::<Property>(property_str)
             .map_err(|err| anyhow::anyhow!("Could not parse property: {:#}", err))
             .and_then(|prop| {
-                process_course(
+                process_save(
                     prop.call
                         .game
                         .right()
-                        .ok_or(anyhow::anyhow!("Could not process course property"))?,
+                        .ok_or(anyhow::anyhow!("Could not process save property"))?,
                 )
             }),
         _ => unreachable!(),

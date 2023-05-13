@@ -4,8 +4,8 @@ use crate::types::tachi::{Import, ImportClasses, SkillLevel};
 use anyhow::Result;
 use log::info;
 
-pub fn process_course(course: GameSave) -> Result<()> {
-    let card = course.ref_id;
+pub fn process_save(save: GameSave) -> Result<()> {
+    let card = save.ref_id;
     if !CONFIGURATION.cards.whitelist.is_empty() && !CONFIGURATION.cards.whitelist.contains(&card) {
         info!("Card {} is not whitelisted, skipping class update", card);
         return Ok(());
@@ -14,7 +14,7 @@ pub fn process_course(course: GameSave) -> Result<()> {
     let import = Import {
         meta: Default::default(),
         classes: Some(ImportClasses {
-            dan: SkillLevel::from(course.skill_level),
+            dan: SkillLevel::from(save.skill_level),
         }),
         scores: vec![],
     };
