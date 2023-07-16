@@ -40,7 +40,11 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
                 fast: track.judge[0],
                 slow: track.judge[6],
                 max_combo: track.max_chain,
-                ex_score: track.ex_score,
+                ex_score: if track.ex_score == 0 && track.score != 0 {
+                    None
+                } else {
+                    Some(track.ex_score)
+                },
                 gauge: track.effective_rate as f32 / 100.0,
             },
         })

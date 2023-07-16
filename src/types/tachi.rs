@@ -123,6 +123,6 @@ pub struct HitMeta {
     #[serde(rename = "maxCombo")]
     pub max_combo: u32,
     #[serde(rename = "exScore")]
-    pub ex_score: u32,
+    pub ex_score: Option<u32>,
     pub gauge: f32,
 }
