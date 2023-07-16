@@ -1,3 +1,11 @@
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::RwLock;
+
+use anyhow::Result;
+use bytes::Bytes;
+use kbinxml::{CompressionType, Node, Options, Value};
+use log::{debug, error, info, warn};
+
 use crate::handlers::save::process_save;
 use crate::handlers::scores::process_scores;
 use crate::sys::{
@@ -6,13 +14,9 @@ use crate::sys::{
 };
 use crate::types::game::Property;
 use crate::{helpers, CONFIGURATION, TACHI_STATUS_URL};
-use anyhow::Result;
-use bytes::Bytes;
-use kbinxml::{CompressionType, Node, Options, Value};
-use log::{debug, error, info, warn};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-static USER: AtomicU64 = AtomicU64::new(0);
+pub static USER: AtomicU64 = AtomicU64::new(0);
+pub static CURRENT_CARD_ID: RwLock<Option<String>> = RwLock::new(None);
 
 pub fn hook_init(ea3_node: *const ()) -> Result<()> {
     if !CONFIGURATION.general.enable {
@@ -217,34 +221,39 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
         return 0;
     }
 
-    let game_node = property_search(property, std::ptr::null(), b"/call/game\0".as_ptr());
-    if game_node.is_null() {
+    let node = property_search(property, std::ptr::null(), b"/call/game\0".as_ptr());
+    let node = if node.is_null() {
+        property_search(property, std::ptr::null(), b"/call/cardmng\0".as_ptr())
+    } else {
+        node
+    };
+    if node.is_null() {
         property_clear_error(property);
         return call_original!(property);
     }
 
     let mut buffer = [0u8; 256];
-    let result = property_node_name(game_node, buffer.as_mut_ptr(), buffer.len() as u32);
+    let result = property_node_name(node, buffer.as_mut_ptr(), buffer.len() as u32);
     if result < 0 {
         return call_original!(property);
     }
 
     let name = {
-        let result = std::str::from_utf8(&buffer[0..4]);
+        let result = std::str::from_utf8(&buffer[0..32]);
         if let Err(err) = result {
             error!("Could not convert buffer to string: {:#}", err);
             return call_original!(property);
         }
 
-        result.unwrap()
+        result.unwrap().replace('\0', "")
     };
-    if name != "game" {
+    if name != "game" && name != "cardmng" {
         return call_original!(property);
     }
 
     let result = property_node_refer(
         property,
-        game_node,
+        node,
         b"method@\0".as_ptr(),
         NodeType::NodeAttr,
         buffer.as_mut_ptr() as *mut (),
@@ -263,7 +272,44 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
 
         result.unwrap().replace('\0', "")
     };
-    debug!("Intercepted Game Method: {}", method);
+    debug!("Intercepted '{}' method: {}", name, method);
+
+    if name == "cardmng" {
+        if method != "inquire" {
+            return call_original!(property);
+        }
+
+        let result = property_node_refer(
+            property,
+            node,
+            b"cardid@\0".as_ptr(),
+            NodeType::NodeAttr,
+            buffer.as_mut_ptr() as *mut (),
+            256,
+        );
+        if result < 0 {
+            return call_original!(property);
+        }
+
+        let cardid = {
+            let result = std::str::from_utf8(&buffer[..32]);
+            if let Err(err) = result {
+                error!("Could not convert buffer to string: {:#}", err);
+                return call_original!(property);
+            }
+
+            result.unwrap().replace('\0', "")
+        };
+
+        if let Ok(mut guard) = CURRENT_CARD_ID.write() {
+            debug!("Set current card id to {}", cardid);
+            *guard = Some(cardid);
+        } else {
+            warn!("Could not acquire write lock on current card id");
+        }
+
+        return call_original!(property);
+    }
 
     if CONFIGURATION.general.inject_cloud_pbs {
         if method == "sv6_load_m" {

@@ -14,8 +14,8 @@ pub struct CallStruct {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameScores {
-    #[serde(rename = "refid")]
-    pub ref_id: String,
+    #[serde(rename = "refid", default)]
+    pub ref_id: Option<String>,
     #[serde(with = "either::serde_untagged", rename = "track")]
     pub tracks: Either<Track, Vec<Track>>,
 }
@@ -39,7 +39,7 @@ pub struct Track {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct GameSave {
-    #[serde(rename = "refid")]
-    pub ref_id: String,
+    #[serde(rename = "refid", default)]
+    pub ref_id: Option<String>,
     pub skill_level: u32,
 }

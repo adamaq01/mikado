@@ -1,7 +1,8 @@
+use crate::mikado::CURRENT_CARD_ID;
 use crate::sys::{property_node_refer, NodeType};
 use crate::CONFIGURATION;
 use anyhow::Result;
-use log::debug;
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -61,6 +62,15 @@ where
     debug!("Tachi API response: {:#?}", response);
 
     Ok(response)
+}
+
+pub fn get_current_card_id() -> Option<String> {
+    let guard = CURRENT_CARD_ID.read().unwrap_or_else(|err| {
+        error!("Current card ID RwLock is poisoned: {:#}", err);
+        err.into_inner()
+    });
+
+    guard.clone()
 }
 
 pub fn read_node_str(node: *const (), path: *const u8, length: usize) -> Option<String> {

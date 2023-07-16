@@ -6,11 +6,26 @@ use either::Either;
 use log::info;
 
 pub fn process_scores(scores: GameScores) -> Result<()> {
-    let card = scores.ref_id;
-    if !CONFIGURATION.cards.whitelist.is_empty() && !CONFIGURATION.cards.whitelist.contains(&card) {
-        info!("Card {} is not whitelisted, skipping score(s)", card);
+    if scores.ref_id.is_none() {
+        info!("Guest play, skipping score(s) submission");
         return Ok(());
     }
+    let card = if let Some(card) = helpers::get_current_card_id() {
+        if !CONFIGURATION.cards.whitelist.is_empty()
+            && !CONFIGURATION.cards.whitelist.contains(&card)
+        {
+            info!(
+                "Card {} is not whitelisted, skipping score(s) submission",
+                card
+            );
+            return Ok(());
+        }
+
+        card
+    } else {
+        info!("Card ID is not set, skipping score(s) submission");
+        return Ok(());
+    };
 
     let tracks = match scores.tracks {
         Either::Left(track) => vec![track],
