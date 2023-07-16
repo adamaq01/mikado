@@ -1,6 +1,6 @@
-use crate::mikado::{send_import, CONFIGURATION};
 use crate::types::game::GameScores;
 use crate::types::tachi::{Difficulty, HitMeta, Import, ImportScore, Judgements, TachiLamp};
+use crate::{helpers, CONFIGURATION, TACHI_IMPORT_URL};
 use anyhow::Result;
 use either::Either;
 use log::info;
@@ -52,7 +52,7 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
         scores,
     };
 
-    send_import(import)?;
+    helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), Some(import))?;
     info!("Successfully imported score(s) for card {}", card);
 
     Ok(())

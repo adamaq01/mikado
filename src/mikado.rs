@@ -5,7 +5,7 @@ use crate::sys::{
     property_query_size, property_search, property_set_flag, NodeType,
 };
 use crate::types::game::Property;
-use crate::types::tachi::Import;
+use crate::{helpers, CONFIGURATION, TACHI_STATUS_URL};
 use anyhow::Result;
 use lazy_static::lazy_static;
 use log::{debug, error, info};
@@ -19,14 +19,13 @@ pub fn hook_init() -> Result<()> {
     }
 
     // Trying to reach Tachi API
-    debug!("Trying to reach Tachi API at {}", TACHI_STATUS_URL.as_str());
-    let authorization = format!("Bearer {}", CONFIGURATION.tachi.api_key);
-    let response = ureq::get(TACHI_STATUS_URL.as_str())
-        .set("Authorization", authorization.as_str())
-        .call()
-        .map_err(|err| anyhow::anyhow!("Could not reach Tachi API: {:#}", err))?;
-    debug!("Tachi API status response: {:#?}", response.into_string()?);
-    info!("Tachi API successfully reached");
+    let response: serde_json::Value =
+        helpers::request_tachi("GET", TACHI_STATUS_URL.as_str(), None::<()>)?;
+    let user = response["body"]["whoami"]
+        .as_u64()
+        .ok_or(anyhow::anyhow!("Couldn't parse user from Tachi response"))?;
+    USER.store(user, Ordering::Relaxed);
+    info!("Tachi API successfully reached, user {}", user);
 
     // Initializing function detours
     crochet::enable!(property_destroy_hook)

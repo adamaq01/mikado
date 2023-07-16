@@ -1,5 +1,6 @@
 mod configuration;
 mod handlers;
+mod helpers;
 mod log;
 mod mikado;
 mod sys;
