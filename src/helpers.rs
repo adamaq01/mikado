@@ -22,7 +22,10 @@ where
     let url = url.as_ref();
     debug!("{} request to {} with body: {:#?}", method, url, body);
 
-    let request = agent.request(method, url);
+    let authorization = format!("Bearer {}", CONFIGURATION.tachi.api_key);
+    let request = agent
+        .request(method, url)
+        .set("Authorization", authorization.as_str());
     let response = match body {
         Some(body) => request.send_json(body),
         None => request.call(),
