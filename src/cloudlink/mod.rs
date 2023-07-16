@@ -76,7 +76,7 @@ pub fn process_pbs(user: &str, music: &Node, encoding: EncodingType) -> Result<V
                 song_id,
                 difficulty,
             };
-            let score = Score::from_property(value.as_slice().try_into()?);
+            let score = Score::from_slice(value)?;
             scores.insert(chart, score);
         }
     }

@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Chart {
     pub song_id: u32,
@@ -19,10 +21,14 @@ impl Score {
         ret
     }
 
-    pub fn from_property(property: &[u32; 21]) -> Self {
-        Self {
-            property: *property,
+    pub fn from_slice(vec: &[u32]) -> Result<Self> {
+        if vec.len() < 21 {
+            return Err(anyhow::anyhow!("Could not parse score"));
         }
+        let mut ret = Self::default();
+        ret.property.copy_from_slice(&vec[..21]);
+
+        Ok(ret)
     }
 
     pub fn cloud_score_mut(&mut self) -> &mut u32 {
