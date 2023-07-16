@@ -1,7 +1,5 @@
-use crate::configuration::Configuration;
 use crate::handlers::save::process_save;
 use crate::handlers::scores::process_scores;
-use crate::log::Logger;
 use crate::sys::{
     property_clear_error, property_mem_write, property_node_name, property_node_refer,
     property_query_size, property_search, property_set_flag, NodeType,
@@ -11,83 +9,14 @@ use crate::types::tachi::Import;
 use anyhow::Result;
 use lazy_static::lazy_static;
 use log::{debug, error, info};
-use url::Url;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
-lazy_static! {
-    pub static ref CONFIGURATION: Configuration = {
-        let result = Configuration::load();
-        if let Err(err) = result {
-            error!("{:#}", err);
-            std::process::exit(1);
-        }
-
-        result.unwrap()
-    };
-    pub static ref TACHI_STATUS_URL: Url = {
-        let result = Url::parse(&CONFIGURATION.tachi.base_url)
-            .and_then(|url| url.join(&CONFIGURATION.tachi.status));
-        if let Err(err) = result {
-            error!("Could not parse Tachi status URL: {:#}", err);
-            std::process::exit(1);
-        }
-
-        result.unwrap()
-    };
-    pub static ref TACHI_IMPORT_URL: Url = {
-        let result = Url::parse(&CONFIGURATION.tachi.base_url)
-            .and_then(|url| url.join(&CONFIGURATION.tachi.import));
-        if let Err(err) = result {
-            error!("Could not parse Tachi import URL: {:#}", err);
-            std::process::exit(1);
-        }
-
-        result.unwrap()
-    };
-}
-
-pub fn send_import(import: Import) -> Result<()> {
-    debug!("Trying to import to Tachi: {:#?}", import);
-    let authorization = format!("Bearer {}", CONFIGURATION.tachi.api_key);
-    let response = ureq::post(TACHI_IMPORT_URL.as_str())
-        .set("Authorization", authorization.as_str())
-        .send_json(import)
-        .map_err(|err| anyhow::anyhow!("Could not reach Tachi API: {:#}", err))?;
-    debug!("Tachi API status response: {:#?}", response.into_string()?);
-
-    Ok(())
-}
+static USER: AtomicU64 = AtomicU64::new(0);
 
 pub fn hook_init() -> Result<()> {
     if !CONFIGURATION.general.enable {
         return Ok(());
     }
-
-    // Configuring logger
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
-        .parse_default_env()
-        .target(env_logger::Target::Pipe(Box::new(Logger::new())))
-        .format(|f, record| {
-            use crate::log::{colored_level, max_target_width, Padded};
-            use std::io::Write;
-
-            let target = record.target();
-            let max_width = max_target_width(target);
-
-            let mut style = f.style();
-            let level = colored_level(&mut style, record.level());
-
-            let mut style = f.style();
-            let target = style.set_bold(true).value(Padded {
-                value: target,
-                width: max_width,
-            });
-
-            let time = chrono::Local::now().format("%d/%m/%Y %H:%M:%S");
-
-            writeln!(f, "[{}] {} {} -> {}", time, level, target, record.args())
-        })
-        .init();
 
     // Trying to reach Tachi API
     debug!("Trying to reach Tachi API at {}", TACHI_STATUS_URL.as_str());
