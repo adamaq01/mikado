@@ -27,3 +27,8 @@ url = "2.3"
 either = { version = "1.8", features = ["serde"] }
 num_enum = "0.6"
 chrono = "0.4"
+kbinxml = { git = "https://github.com/mbilker/kbinxml-rs.git", version = "3.1.0" }
+psmap = { git = "https://github.com/mbilker/kbinxml-rs.git", version = "2.0.0" }
+psmap_derive = { git = "https://github.com/mbilker/kbinxml-rs.git", version = "2.0.0" }
+bytes = "1.4"
+dynfmt = { version = "0.1", default-features = false, features = ["curly"] }

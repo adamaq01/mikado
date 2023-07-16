@@ -7,7 +7,8 @@ use crate::sys::{
 use crate::types::game::Property;
 use crate::{helpers, CONFIGURATION, TACHI_STATUS_URL};
 use anyhow::Result;
-use lazy_static::lazy_static;
+use bytes::Bytes;
+use kbinxml::{CompressionType, Node, Options, Value};
 use log::{debug, error, info};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
@@ -30,6 +31,11 @@ pub fn hook_init() -> Result<()> {
     // Initializing function detours
     crochet::enable!(property_destroy_hook)
         .map_err(|err| anyhow::anyhow!("Could not enable function detour: {:#}", err))?;
+    if CONFIGURATION.general.inject_cloud_pbs {
+        debug!("PBs injection enabled");
+        crochet::enable!(property_mem_read_hook)
+            .map_err(|err| anyhow::anyhow!("Could not enable function detour: {:#}", err))?;
+    }
 
     info!("Hook successfully initialized");
 
@@ -46,7 +52,136 @@ pub fn hook_release() -> Result<()> {
             .map_err(|err| anyhow::anyhow!("Could not disable function detour: {:#}", err))?;
     }
 
+    if crochet::is_enabled!(property_mem_read_hook) {
+        crochet::disable!(property_mem_read_hook)
+            .map_err(|err| anyhow::anyhow!("Could not disable function detour: {:#}", err))?;
+    }
+
     Ok(())
+}
+
+static LOAD: AtomicBool = AtomicBool::new(false);
+static LOAD_M: AtomicBool = AtomicBool::new(false);
+static COMMON: AtomicBool = AtomicBool::new(false);
+
+#[crochet::hook("avs2-core.dll", "XCgsqzn00000b7")]
+pub unsafe fn property_mem_read_hook(
+    ptr: *const (),
+    something: i32,
+    flags: i32,
+    data: *const u8,
+    size: u32,
+) -> *const () {
+    let load = LOAD.load(Ordering::SeqCst);
+    let load_m = LOAD_M.load(Ordering::SeqCst);
+    let common = COMMON.load(Ordering::SeqCst);
+    if !load && !load_m && !common {
+        return call_original!(ptr, something, flags, data, size);
+    }
+
+    let bytes = std::slice::from_raw_parts(ptr as *const u8, something as usize).to_vec();
+    match property_mem_read_hook_wrapped(bytes, load, load_m, common) {
+        Some(Ok(response)) => {
+            call_original!(
+                response.as_ptr() as *const (),
+                response.len() as i32,
+                flags,
+                data,
+                size
+            )
+        }
+        Some(Err(err)) => {
+            error!(
+                "Error while processing an important e-amusement response node: {:#}",
+                err
+            );
+            call_original!(ptr, something, flags, data, size)
+        }
+        None => call_original!(ptr, something, flags, data, size),
+    }
+}
+
+#[allow(clippy::manual_map)]
+pub unsafe fn property_mem_read_hook_wrapped(
+    response: Vec<u8>,
+    load: bool,
+    load_m: bool,
+    common: bool,
+) -> Option<Result<Vec<u8>>> {
+    let (mut root, encoding) = kbinxml::from_bytes(Bytes::from(response))
+        .and_then(|(node, encoding)| node.as_node().map(|node| (node, encoding)))
+        .ok()?;
+
+    if common
+        .then(|| root.pointer(&["game", "event"]))
+        .flatten()
+        .is_some()
+    {
+        Some((|| {
+            let events = root
+                .pointer_mut(&["game", "event"])
+                .expect("Could not find events node");
+
+            events.children_mut().retain(|info| {
+                if let Some(Value::String(event_id)) = info
+                    .pointer(&["event_id"])
+                    .and_then(|event_id| event_id.value())
+                {
+                    event_id != "CLOUD_LINK_ENABLE"
+                } else {
+                    true
+                }
+            });
+            events.children_mut().push(Node::with_nodes(
+                "info",
+                vec![Node::with_value(
+                    "event_id",
+                    Value::String("CLOUD_LINK_ENABLE".to_string()),
+                )],
+            ));
+            let response = kbinxml::to_binary_with_options(
+                Options::new(CompressionType::Uncompressed, encoding),
+                &root,
+            )?;
+            COMMON.store(false, Ordering::Relaxed);
+
+            Ok(response)
+        })())
+    } else if load
+        .then(|| root.pointer(&["game", "code"]))
+        .flatten()
+        .is_some()
+    {
+        Some((|| {
+            let game = root
+                .pointer_mut(&["game"])
+                .expect("Could not find game node");
+            game.children_mut().retain(|node| {
+                return node.key() != "cloud";
+            });
+            game.children_mut().push(Node::with_nodes(
+                "cloud",
+                vec![Node::with_value("relation", Value::S8(1))],
+            ));
+            let response = kbinxml::to_binary_with_options(
+                Options::new(CompressionType::Uncompressed, encoding),
+                &root,
+            )?;
+            LOAD.store(false, Ordering::Relaxed);
+
+            Ok(response)
+        })())
+    } else if let Some(music) = load_m.then(|| root.pointer(&["game", "music"])).flatten() {
+        Some((|| {
+            let user = USER.load(Ordering::SeqCst).to_string();
+            let response = crate::cloudlink::process_pbs(user.as_str(), music, encoding)?;
+            LOAD_M.store(false, Ordering::Relaxed);
+
+            Ok(response)
+        })())
+    } else {
+        None
+    }
 }
 
 #[crochet::hook("avs2-core.dll", "XCgsqzn0000091")]
@@ -102,6 +237,17 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
         result.unwrap().replace('\0', "")
     };
     debug!("Intercepted Game Method: {}", method);
+
+    if CONFIGURATION.general.inject_cloud_pbs {
+        if method == "sv6_load_m" {
+            LOAD_M.store(true, Ordering::Relaxed);
+        } else if method == "sv6_common" {
+            COMMON.store(true, Ordering::Relaxed);
+        } else if method == "sv6_load" {
+            LOAD.store(true, Ordering::Relaxed);
+        }
+    }
+
     if method != "sv6_save_m" && (!CONFIGURATION.general.export_class || method != "sv6_save") {
         return call_original!(property);
     }
