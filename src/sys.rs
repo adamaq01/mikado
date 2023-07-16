@@ -1,5 +1,13 @@
 #![allow(dead_code)]
 
+#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+pub enum NodeData {
+    Int(i32),
+    Float(f32),
+    Pointer(*const u8),
+}
+
 #[crochet::load("avs2-core.dll")]
 extern "C" {
     #[symbol("XCgsqzn0000091")]
@@ -12,6 +20,16 @@ extern "C" {
     pub fn property_query_size(property: *const ()) -> i32;
     #[symbol("XCgsqzn00000a1")]
     pub fn property_search(property: *const (), node: *const (), path: *const u8) -> *mut ();
+    #[symbol("XCgsqzn00000a2")]
+    pub fn property_node_create(
+        property: *mut (),
+        node: *mut (),
+        node_type: NodeType,
+        path: *const u8,
+        data: NodeData,
+    ) -> *mut ();
+    #[symbol("XCgsqzn00000a3")]
+    pub fn property_node_remove(node: *mut ()) -> i32;
     #[symbol("XCgsqzn00000a7")]
     pub fn property_node_name(node: *const (), buffer: *mut u8, size: u32) -> i32;
     #[symbol("XCgsqzn00000ab")]
