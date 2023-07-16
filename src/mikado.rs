@@ -9,14 +9,41 @@ use crate::{helpers, CONFIGURATION, TACHI_STATUS_URL};
 use anyhow::Result;
 use bytes::Bytes;
 use kbinxml::{CompressionType, Node, Options, Value};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 static USER: AtomicU64 = AtomicU64::new(0);
 
-pub fn hook_init() -> Result<()> {
+pub fn hook_init(ea3_node: *const ()) -> Result<()> {
     if !CONFIGURATION.general.enable {
         return Ok(());
+    }
+
+    if let Some((model, dest, spec, revision, ext)) =
+        helpers::read_node_str(ea3_node, b"/soft/model\0".as_ptr(), 3).and_then(|model| {
+            let dest = helpers::read_node_str(ea3_node, b"/soft/dest\0".as_ptr(), 1)?;
+            let spec = helpers::read_node_str(ea3_node, b"/soft/spec\0".as_ptr(), 1)?;
+            let revision = helpers::read_node_str(ea3_node, b"/soft/rev\0".as_ptr(), 1)?;
+            let ext = helpers::read_node_str(ea3_node, b"/soft/ext\0".as_ptr(), 10)?
+                .parse::<u64>()
+                .unwrap_or(0);
+            Some((model, dest, spec, revision, ext))
+        })
+    {
+        if model != "KFC" || revision == "O" || revision == "X" || ext < 2022083000 {
+            error!(
+                "Unsupported model/revision/ext '{}:{}:{}:{}:{}', hook will not be enabled",
+                model, dest, spec, revision, ext
+            );
+            return Ok(());
+        } else {
+            info!(
+                "Detected game software '{}:{}:{}:{}:{}'",
+                model, dest, spec, revision, ext
+            );
+        }
+    } else {
+        warn!("Could not read game version, hook might not work properly");
     }
 
     // Trying to reach Tachi API

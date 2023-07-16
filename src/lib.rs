@@ -92,6 +92,15 @@ fn init_logger() {
         .init();
 }
 
+#[crochet::hook("avs2-ea3.dll", "XEmdwapa000024")]
+unsafe fn avs_ea3_boot_startup_hook(node: *const ()) -> i32 {
+    if let Err(err) = hook_init(node) {
+        error!("{:#}", err);
+    }
+
+    call_original!(node)
+}
+
 #[no_mangle]
 #[allow(non_snake_case, unused_variables)]
 extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: DWORD, reserved: LPVOID) -> BOOL {
@@ -99,11 +108,16 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: DWORD, reserved: 
         DLL_PROCESS_ATTACH => {
             unsafe { AllocConsole() };
             init_logger();
-            if let Err(err) = hook_init() {
+
+            if let Err(err) = crochet::enable!(avs_ea3_boot_startup_hook) {
                 error!("{:#}", err);
             }
         }
         DLL_PROCESS_DETACH => {
+            if let Err(err) = crochet::disable!(avs_ea3_boot_startup_hook) {
+                error!("{:#}", err);
+            }
+
             if let Err(err) = hook_release() {
                 error!("{:#}", err);
             }

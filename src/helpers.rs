@@ -1,3 +1,4 @@
+use crate::sys::{property_node_refer, NodeType};
 use crate::CONFIGURATION;
 use anyhow::Result;
 use log::debug;
@@ -60,4 +61,24 @@ where
     debug!("Tachi API response: {:#?}", response);
 
     Ok(response)
+}
+
+pub fn read_node_str(node: *const (), path: *const u8, length: usize) -> Option<String> {
+    let mut buffer = [0u8; 32];
+    let result = unsafe {
+        property_node_refer(
+            node,
+            node,
+            path,
+            NodeType::NodeStr,
+            buffer.as_mut_ptr() as *mut (),
+            32,
+        )
+    };
+
+    if result < 0 {
+        return None;
+    }
+
+    Some(String::from_utf8_lossy(&buffer[..length]).to_string())
 }
