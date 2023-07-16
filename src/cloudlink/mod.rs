@@ -5,7 +5,7 @@ use crate::{helpers, TACHI_PBS_URL};
 use anyhow::Result;
 use dynfmt::Format;
 use ext::HashMapExt;
-use kbinxml::{CompressionType, EncodingType, Node, Options, Value, ValueArray};
+use kbinxml::{Node, Value, ValueArray};
 use log::info;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -20,7 +20,7 @@ fn build_response_base(scores: Vec<Node>) -> Node {
     )
 }
 
-pub fn process_pbs(user: &str, music: &Node, encoding: EncodingType) -> Result<Vec<u8>> {
+pub fn process_pbs(user: &str, music: &Node) -> Result<Node> {
     let url = dynfmt::SimpleCurlyFormat.format(TACHI_PBS_URL.as_str(), [user])?;
     let response: serde_json::Value = helpers::request_tachi("GET", url, None::<()>)?;
     let body = response["body"].as_object().ok_or(anyhow::anyhow!(
@@ -120,11 +120,7 @@ pub fn process_pbs(user: &str, music: &Node, encoding: EncodingType) -> Result<V
     }
 
     let response = build_response_base(scores.to_properties());
-    let bytes = kbinxml::to_binary_with_options(
-        Options::new(CompressionType::Uncompressed, encoding),
-        &response,
-    )?;
     info!("Successfully injected Tachi PBs as Cloud scores");
 
-    Ok(bytes)
+    Ok(response)
 }

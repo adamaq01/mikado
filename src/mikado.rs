@@ -3,7 +3,7 @@ use std::sync::RwLock;
 
 use anyhow::Result;
 use bytes::Bytes;
-use kbinxml::{CompressionType, Node, Options, Value};
+use kbinxml::{CompressionType, EncodingType, Node, Options, Value};
 use log::{debug, error, info, warn};
 
 use crate::handlers::save::process_save;
@@ -132,14 +132,32 @@ pub unsafe fn property_mem_read_hook(
     }
 }
 
+fn build_response(
+    original_signature: &[u8],
+    response: Node,
+    encoding: EncodingType,
+) -> Result<Vec<u8>> {
+    if kbinxml::is_binary_xml(original_signature) {
+        let bytes = kbinxml::to_binary_with_options(
+            Options::new(CompressionType::from_byte(original_signature[1])?, encoding),
+            &response,
+        )?;
+        Ok(bytes)
+    } else {
+        let bytes = kbinxml::to_text_xml(&response)?;
+        Ok(bytes)
+    }
+}
+
 #[allow(clippy::manual_map)]
 pub unsafe fn property_mem_read_hook_wrapped(
-    response: Vec<u8>,
+    original: Vec<u8>,
     load: bool,
     load_m: bool,
     common: bool,
 ) -> Option<Result<Vec<u8>>> {
-    let (mut root, encoding) = kbinxml::from_bytes(Bytes::from(response))
+    let original_signature = original[..2].to_vec();
+    let (mut root, encoding) = kbinxml::from_bytes(Bytes::from(original))
         .and_then(|(node, encoding)| node.as_node().map(|node| (node, encoding)))
         .ok()?;
 
@@ -170,10 +188,7 @@ pub unsafe fn property_mem_read_hook_wrapped(
                     Value::String("CLOUD_LINK_ENABLE".to_string()),
                 )],
             ));
-            let response = kbinxml::to_binary_with_options(
-                Options::new(CompressionType::Uncompressed, encoding),
-                &root,
-            )?;
+            let response = build_response(&original_signature, root, encoding)?;
             COMMON.store(false, Ordering::Relaxed);
 
             Ok(response)
@@ -194,10 +209,7 @@ pub unsafe fn property_mem_read_hook_wrapped(
                 "cloud",
                 vec![Node::with_value("relation", Value::S8(1))],
             ));
-            let response = kbinxml::to_binary_with_options(
-                Options::new(CompressionType::Uncompressed, encoding),
-                &root,
-            )?;
+            let response = build_response(&original_signature, root, encoding)?;
             LOAD.store(false, Ordering::Relaxed);
 
             Ok(response)
@@ -205,7 +217,8 @@ pub unsafe fn property_mem_read_hook_wrapped(
     } else if let Some(music) = load_m.then(|| root.pointer(&["game", "music"])).flatten() {
         Some((|| {
             let user = USER.load(Ordering::SeqCst).to_string();
-            let response = crate::cloudlink::process_pbs(user.as_str(), music, encoding)?;
+            let response = crate::cloudlink::process_pbs(user.as_str(), music)?;
+            let response = build_response(&original_signature, response, encoding)?;
             LOAD_M.store(false, Ordering::Relaxed);
 
             Ok(response)
