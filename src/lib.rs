@@ -66,7 +66,11 @@ lazy_static! {
 fn init_logger() {
     env_logger::builder()
         .filter_level(::log::LevelFilter::Error)
-        .filter_module("mikado", ::log::LevelFilter::Info)
+        .filter_module("mikado", if cfg!(debug_assertions) {
+            ::log::LevelFilter::Debug
+        } else {
+            ::log::LevelFilter::Info
+        })
         .parse_default_env()
         .target(env_logger::Target::Pipe(Box::new(Logger::new())))
         .format(|f, record| {
