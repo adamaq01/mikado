@@ -62,10 +62,10 @@ pub(crate) fn colored_level(
             .set_color(env_logger::fmt::Color::Magenta)
             .value("TRACE"),
         log::Level::Debug => style.set_color(env_logger::fmt::Color::Blue).value("DEBUG"),
-        log::Level::Info => style.set_color(env_logger::fmt::Color::Green).value("INFO"),
+        log::Level::Info => style.set_color(env_logger::fmt::Color::Green).value(" INFO"),
         log::Level::Warn => style
             .set_color(env_logger::fmt::Color::Yellow)
-            .value("WARN"),
+            .value(" WARN"),
         log::Level::Error => style.set_color(env_logger::fmt::Color::Red).value("ERROR"),
     }
 }
