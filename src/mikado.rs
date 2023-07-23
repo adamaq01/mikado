@@ -17,6 +17,7 @@ use crate::{helpers, CONFIGURATION, TACHI_STATUS_URL};
 
 pub static USER: AtomicU64 = AtomicU64::new(0);
 pub static CURRENT_CARD_ID: RwLock<Option<String>> = RwLock::new(None);
+pub static IS_VALKYRIE: AtomicBool = AtomicBool::new(false);
 
 pub fn hook_init(ea3_node: *const ()) -> Result<()> {
     if !CONFIGURATION.general.enable {
@@ -34,12 +35,19 @@ pub fn hook_init(ea3_node: *const ()) -> Result<()> {
             Some((model, dest, spec, revision, ext))
         })
     {
+        IS_VALKYRIE.store(spec == "G" || spec == "H", Ordering::Relaxed);
+
         if model != "KFC" || revision == "O" || revision == "X" || ext < 2022083000 {
             error!(
                 "Unsupported model/revision/ext '{}:{}:{}:{}:{}', hook will not be enabled",
                 model, dest, spec, revision, ext
             );
             return Ok(());
+        } else if spec == "G" || spec == "H" {
+            info!(
+                "Detected game software '{}:{}:{}:{}:{} (Valkyrie Model)'",
+                model, dest, spec, revision, ext
+            );
         } else {
             info!(
                 "Detected game software '{}:{}:{}:{}:{}'",
