@@ -103,6 +103,11 @@ pub fn process_pbs(user: &str, music: &Node) -> Result<Node> {
                 "Could not parse PB grade from Tachi PBs API"
             ))?
             + 1;
+        let grade = if grade >= 11 {
+            10
+        } else {
+            grade
+        };
 
         let entry = scores.entry(*chart);
         match entry {
