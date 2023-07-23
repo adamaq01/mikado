@@ -1,6 +1,6 @@
 [package]
 name = "mikado"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Adam Thibert <adamthibert01@gmail.com>"]
 edition = "2021"
 license = "MIT"
