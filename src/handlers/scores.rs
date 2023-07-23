@@ -1,11 +1,9 @@
-use std::sync::atomic::Ordering;
 use crate::types::game::GameScores;
 use crate::types::tachi::{Difficulty, HitMeta, Import, ImportScore, Judgements, TachiLamp};
 use crate::{helpers, CONFIGURATION, TACHI_IMPORT_URL};
 use anyhow::Result;
 use either::Either;
 use log::info;
-use crate::mikado::IS_VALKYRIE;
 
 pub fn process_scores(scores: GameScores) -> Result<()> {
     if scores.ref_id.is_none() {
@@ -28,8 +26,6 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
         info!("Card ID is not set, skipping score(s) submission");
         return Ok(());
     };
-
-    let is_valkyrie = IS_VALKYRIE.load(Ordering::Relaxed);
 
     let tracks = match scores.tracks {
         Either::Left(track) => vec![track],
@@ -59,7 +55,7 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
                 fast: track.judge[0],
                 slow: track.judge[6],
                 max_combo: track.max_chain,
-                ex_score: if is_valkyrie || track.ex_score != 0 {
+                ex_score: if track.ex_score != 0 {
                     Some(track.ex_score)
                 } else {
                     None
