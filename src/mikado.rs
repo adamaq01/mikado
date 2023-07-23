@@ -45,7 +45,7 @@ pub fn hook_init(ea3_node: *const ()) -> Result<()> {
             return Ok(());
         } else if spec == "G" || spec == "H" {
             info!(
-                "Detected game software '{}:{}:{}:{}:{} (Valkyrie Model)'",
+                "Detected game software '{}:{}:{}:{}:{}' (Valkyrie Model)",
                 model, dest, spec, revision, ext
             );
         } else {
@@ -57,7 +57,6 @@ pub fn hook_init(ea3_node: *const ()) -> Result<()> {
     } else {
         warn!("Could not read game version, hook might not work properly");
     }
-
     // Trying to reach Tachi API
     let response: serde_json::Value =
         helpers::request_tachi("GET", TACHI_STATUS_URL.as_str(), None::<()>)?;
