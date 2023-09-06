@@ -9,7 +9,7 @@ mod types;
 
 use crate::log::Logger;
 use crate::mikado::{hook_init, hook_release};
-use ::log::error;
+use ::log::{error, info};
 use configuration::Configuration;
 use lazy_static::lazy_static;
 use url::Url;
@@ -99,6 +99,49 @@ fn init_logger() {
         .init();
 }
 
+fn print_infos() {
+    info!(
+        "Starting Mikado v{}-{} by adamaq01",
+        env!("CARGO_PKG_VERSION"),
+        option_env!("VERGEN_GIT_DESCRIBE").unwrap_or("unknown")
+    );
+
+    if let Some(build_date) = option_env!("VERGEN_BUILD_DATE") {
+        info!("Build date: {}", build_date);
+    }
+}
+
+fn check_for_update() -> anyhow::Result<()> {
+    let commit_hash = option_env!("VERGEN_GIT_SHA").unwrap_or("unknown");
+    let latest_commit_hash = helpers::request_agent()
+        .get("https://api.github.com/repos/adamaq01/mikado/releases/latest")
+        .call()?
+        .into_json::<serde_json::Value>()?
+        .get("tag_name")
+        .and_then(|value| value.as_str())
+        .ok_or(anyhow::anyhow!("Could not get latest release tag name"))
+        .and_then(|tag| {
+            helpers::request_agent()
+                .get(&format!(
+                    "https://api.github.com/repos/adamaq01/mikado/git/refs/tags/{}",
+                    tag
+                ))
+                .call()?
+                .into_json::<serde_json::Value>()?
+                .get("object")
+                .and_then(|value| value.get("sha"))
+                .and_then(|value| value.as_str())
+                .map(|value| value.to_string())
+                .ok_or(anyhow::anyhow!("Could not get latest release commit hash"))
+        })?;
+
+    if commit_hash != latest_commit_hash && !cfg!(debug_assertions) {
+        info!("A newer version of Mikado is available at https://github.com/adamaq01/mikado/releases/latest");
+    }
+
+    Ok(())
+}
+
 #[crochet::hook("avs2-ea3.dll", "XEmdwapa000024")]
 unsafe fn avs_ea3_boot_startup_hook(node: *const ()) -> i32 {
     if let Err(err) = hook_init(node) {
@@ -115,6 +158,11 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: DWORD, reserved: 
         DLL_PROCESS_ATTACH => {
             unsafe { AllocConsole() };
             init_logger();
+
+            print_infos();
+            if let Err(err) = check_for_update() {
+                error!("Unable to get update informations {:#}", err);
+            }
 
             if let Err(err) = crochet::enable!(avs_ea3_boot_startup_hook) {
                 error!("{:#}", err);

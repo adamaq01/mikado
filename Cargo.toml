@@ -5,6 +5,7 @@ authors = ["Adam Thibert <adamthibert01@gmail.com>"]
 edition = "2021"
 license = "MIT"
 readme = "README.md"
+build = "build.rs"
 
 [lib]
 crate-type = ["cdylib"]
@@ -15,6 +16,9 @@ opt-level = "z"  # Optimize for size.
 lto = true
 codegen-units = 1
 panic = "abort"
+
+[build-dependencies]
+vergen = { version = "8.0.0", features = ["build", "cargo", "git", "gitcl"] }
 
 [dependencies]
 winapi = { version = "0.3", features = ["minwindef", "windef", "winuser", "libloaderapi", "processthreadsapi", "winbase", "consoleapi"] }

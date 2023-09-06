@@ -6,6 +6,15 @@ use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
+pub fn request_agent() -> ureq::Agent {
+    let timeout = CONFIGURATION.general.timeout;
+    let timeout = if timeout > 10000 { 10000 } else { timeout };
+
+    ureq::builder()
+        .timeout(std::time::Duration::from_millis(timeout))
+        .build()
+}
+
 fn request<T>(
     method: impl AsRef<str>,
     url: impl AsRef<str>,
@@ -14,11 +23,7 @@ fn request<T>(
 where
     T: Serialize + Debug,
 {
-    let timeout = CONFIGURATION.general.timeout;
-    let timeout = if timeout > 10000 { 10000 } else { timeout };
-    let agent = ureq::builder()
-        .timeout(std::time::Duration::from_millis(timeout))
-        .build();
+    let agent = request_agent();
 
     let method = method.as_ref();
     let url = url.as_ref();
