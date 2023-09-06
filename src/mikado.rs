@@ -8,6 +8,7 @@ use log::{debug, error, info, warn};
 
 use crate::handlers::save::process_save;
 use crate::handlers::scores::process_scores;
+use crate::helpers::is_current_card_id_whitelisted;
 use crate::sys::{
     property_clear_error, property_mem_write, property_node_name, property_node_refer,
     property_query_size, property_search, property_set_flag, NodeType,
@@ -200,10 +201,11 @@ pub unsafe fn property_mem_read_hook_wrapped(
 
             Ok(response)
         })())
-    } else if load
-        .then(|| root.pointer(&["game", "code"]))
-        .flatten()
-        .is_some()
+    } else if is_current_card_id_whitelisted()
+        && load
+            .then(|| root.pointer(&["game", "code"]))
+            .flatten()
+            .is_some()
     {
         Some((|| {
             let game = root
@@ -222,14 +224,18 @@ pub unsafe fn property_mem_read_hook_wrapped(
             Ok(response)
         })())
     } else if let Some(music) = load_m.then(|| root.pointer(&["game", "music"])).flatten() {
-        Some((|| {
-            let user = USER.load(Ordering::SeqCst).to_string();
-            let response = crate::cloudlink::process_pbs(user.as_str(), music)?;
-            let response = build_response(&original_signature, response, encoding)?;
-            LOAD_M.store(false, Ordering::Relaxed);
+        if is_current_card_id_whitelisted() {
+            Some((|| {
+                let user = USER.load(Ordering::SeqCst).to_string();
+                let response = crate::cloudlink::process_pbs(user.as_str(), music)?;
+                let response = build_response(&original_signature, response, encoding)?;
+                LOAD_M.store(false, Ordering::Relaxed);
 
-            Ok(response)
-        })())
+                Ok(response)
+            })())
+        } else {
+            None
+        }
     } else {
         None
     }

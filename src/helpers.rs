@@ -78,6 +78,20 @@ pub fn get_current_card_id() -> Option<String> {
     guard.clone()
 }
 
+pub fn is_current_card_id_whitelisted() -> bool {
+    if let Some(card) = get_current_card_id() {
+        if !CONFIGURATION.cards.whitelist.is_empty()
+            && !CONFIGURATION.cards.whitelist.contains(&card)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    false
+}
+
 pub fn read_node_str(node: *const (), path: *const u8, length: usize) -> Option<String> {
     let mut buffer = [0u8; 32];
     let result = unsafe {
