@@ -6,12 +6,12 @@ Little SDVX hook to submit your scores to a Tachi instance while you are playing
 
 - Submit scores to a Tachi instance after each song
 - Submit courses results to a Tachi instance
-- Display Tachi scores in game as cloudlink (konaste) scores
+- Display your Tachi PBs scores in game as cloudlink (konaste) scores
 
 ## Installation
 
 - Download the latest release from the [releases page](https://github.com/adamaq01/mikado/releases/latest)
-- Extract the zip file into your SDVX installation folder
+- Put it in your game installation root directory (optional: create and edit the config file to set your API key)
 - When you start the game, inject the DLL into the process
 
 ## Tips
