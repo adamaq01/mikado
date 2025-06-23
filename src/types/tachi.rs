@@ -91,6 +91,8 @@ pub enum TachiLamp {
     UltimateChain = 4,
     #[serde(rename = "PERFECT ULTIMATE CHAIN")]
     PerfectUltimateChain = 5,
+    #[serde(rename = "MAXXIVE CLEAR")]
+    MaxxiveClear = 6,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, FromPrimitive, Serialize, Deserialize)]
