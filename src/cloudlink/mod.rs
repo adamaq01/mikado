@@ -41,7 +41,7 @@ pub fn process_pbs(user: &str, music: &Node) -> Result<Node> {
             let song_id = chart["data"]["inGameID"].as_u64().ok_or(anyhow::anyhow!(
                 "Could not parse ingame ID from Tachi PBs API"
             ))? as u32;
-            let difficulty: u8 = match chart["difficulty"].as_str().ok_or(anyhow::anyhow!(
+            let difficulty = match chart["difficulty"].as_str().ok_or(anyhow::anyhow!(
                 "Could not parse difficulty from Tachi PBs API"
             ))? {
                 "NOV" => 0,
