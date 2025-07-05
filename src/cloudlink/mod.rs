@@ -91,12 +91,17 @@ pub fn process_pbs(user: &str, music: &Node) -> Result<Node> {
         let score = pb["scoreData"]["score"].as_u64().ok_or(anyhow::anyhow!(
             "Could not parse PB score from Tachi PBs API"
         ))?;
-        let lamp = pb["scoreData"]["enumIndexes"]["lamp"]
-            .as_u64()
-            .ok_or(anyhow::anyhow!(
-                "Could not parse PB lamp from Tachi PBs API"
-            ))?
-            + 1;
+        let lamp: u64 = match pb["scoreData"]["lamp"].as_str().ok_or(anyhow::anyhow!(
+            "Could not parse lamp from Tachi PBs API"
+        ))? {
+            "FAILED" => 1,
+            "CLEAR" => 2,
+            "EXCESSIVE CLEAR" => 3,
+            "ULTIMATE CHAIN" => 4,
+            "PERFECT ULTIMATE CHAIN" => 5,
+            "MAXXIVE CLEAR" => 6,
+            _ => 0,
+        };
         let grade = pb["scoreData"]["enumIndexes"]["grade"]
             .as_u64()
             .ok_or(anyhow::anyhow!(
