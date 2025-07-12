@@ -35,7 +35,7 @@ pub fn process_pbs(user: &str, music: &Node) -> Result<Node> {
         .as_array()
         .ok_or(anyhow::anyhow!("Could not parse charts from Tachi PBs API"))?;
     let charts = charts
-        .into_iter()
+        .iter()
         .map(|chart| {
             let chart_id = chart["chartID"].as_str().ok_or(anyhow::anyhow!(
                 "Could not parse chart ID from Tachi PBs API"

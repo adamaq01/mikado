@@ -54,7 +54,7 @@ pub fn hook_init(ea3_node: *const ()) -> Result<()> {
         .as_u64()
         .ok_or(anyhow::anyhow!("Couldn't parse user from Tachi response"))?;
     USER.store(user, Ordering::Relaxed);
-    info!("Tachi API successfully reached, user {}", user);
+    info!("Tachi API successfully reached, user {user}");
 
     // Initializing function detours
     crochet::enable!(property_destroy_hook)
@@ -119,10 +119,7 @@ pub unsafe fn property_mem_read_hook(
             )
         }
         Some(Err(err)) => {
-            error!(
-                "Error while processing an important e-amusement response node: {:#}",
-                err
-            );
+            error!("Error while processing an important e-amusement response node: {err:#}");
             call_original!(ptr, something, flags, data, size)
         }
         None => call_original!(ptr, something, flags, data, size),
@@ -200,9 +197,7 @@ pub unsafe fn property_mem_read_hook_wrapped(
             let game = root
                 .pointer_mut(&["game"])
                 .expect("Could not find game node");
-            game.children_mut().retain(|node| {
-                return node.key() != "cloud";
-            });
+            game.children_mut().retain(|node| node.key() != "cloud");
             game.children_mut().push(Node::with_nodes(
                 "cloud",
                 vec![Node::with_value("relation", Value::S8(1))],
@@ -256,7 +251,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
     let name = {
         let result = std::str::from_utf8(&buffer[0..32]);
         if let Err(err) = result {
-            error!("Could not convert buffer to string: {:#}", err);
+            error!("Could not convert buffer to string: {err:#}");
             return call_original!(property);
         }
 
@@ -281,13 +276,13 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
     let method = {
         let result = std::str::from_utf8(&buffer[0..11]);
         if let Err(err) = result {
-            error!("Could not convert buffer to string: {:#}", err);
+            error!("Could not convert buffer to string: {err:#}");
             return call_original!(property);
         }
 
         result.unwrap().replace('\0', "")
     };
-    debug!("Intercepted '{}' method: {}", name, method);
+    debug!("Intercepted '{name}' method: {method}");
 
     if name == "cardmng" {
         if method != "inquire" {
@@ -309,7 +304,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
         let cardid = {
             let result = std::str::from_utf8(&buffer[..32]);
             if let Err(err) = result {
-                error!("Could not convert buffer to string: {:#}", err);
+                error!("Could not convert buffer to string: {err:#}");
                 return call_original!(property);
             }
 
@@ -317,7 +312,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
         };
 
         if let Ok(mut guard) = CURRENT_CARD_ID.write() {
-            debug!("Set current card id to {}", cardid);
+            debug!("Set current card id to {cardid}");
             *guard = Some(cardid);
         } else {
             warn!("Could not acquire write lock on current card id");
@@ -359,17 +354,17 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
     let property_str = {
         let result = std::str::from_utf8(&buffer);
         if let Err(err) = result {
-            error!("Could not convert buffer to string: {:#}", err);
+            error!("Could not convert buffer to string: {err:#}");
             return call_original!(property);
         }
 
         result.unwrap()
     };
 
-    debug!("Processing property: {}", property_str);
+    debug!("Processing property: {property_str}");
     if let Err(err) = match method.as_str() {
         "sv6_save_m" => serde_json::from_str::<Property>(property_str)
-            .map_err(|err| anyhow::anyhow!("Could not parse property: {:#}", err))
+            .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
             .and_then(|prop| {
                 process_scores(
                     prop.call
@@ -379,7 +374,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
                 )
             }),
         "sv6_save" => serde_json::from_str::<Property>(property_str)
-            .map_err(|err| anyhow::anyhow!("Could not parse property: {:#}", err))
+            .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
             .and_then(|prop| {
                 process_save(
                     prop.call
@@ -390,7 +385,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
             }),
         _ => unreachable!(),
     } {
-        error!("{:#}", err);
+        error!("{err:#}");
     }
 
     call_original!(property)

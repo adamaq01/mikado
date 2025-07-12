@@ -14,10 +14,7 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
         if !CONFIGURATION.cards.whitelist.is_empty()
             && !CONFIGURATION.cards.whitelist.contains(&card)
         {
-            info!(
-                "Card {} is not whitelisted, skipping score(s) submission",
-                card
-            );
+            info!("Card {card} is not whitelisted, skipping score(s) submission");
             return Ok(());
         }
 
@@ -72,7 +69,7 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
     };
 
     helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), Some(import))?;
-    info!("Successfully imported score(s) for card {}", card);
+    info!("Successfully imported score(s) for card {card}");
 
     Ok(())
 }

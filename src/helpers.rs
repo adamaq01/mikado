@@ -5,6 +5,7 @@ use anyhow::Result;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use winapi::ctypes::c_char;
 
 pub fn request_agent() -> ureq::Agent {
     let timeout = CONFIGURATION.general.timeout;
@@ -27,7 +28,7 @@ where
 
     let method = method.as_ref();
     let url = url.as_ref();
-    debug!("{} request to {} with body: {:#?}", method, url, body);
+    debug!("{method} request to {url} with body: {body:#?}");
 
     let authorization = format!("Bearer {}", CONFIGURATION.tachi.api_key);
     let request = agent
@@ -48,7 +49,7 @@ where
 {
     let response = request(method, url, body)?;
     let response: serde_json::Value = response.into_json()?;
-    debug!("Tachi API response: {:#?}", response);
+    debug!("Tachi API response: {response:#?}");
 
     Ok(())
 }
@@ -64,14 +65,14 @@ where
 {
     let response = request(method, url, body)?;
     let response = response.into_json()?;
-    debug!("Tachi API response: {:#?}", response);
+    debug!("Tachi API response: {response:#?}");
 
     Ok(response)
 }
 
 pub fn get_current_card_id() -> Option<String> {
     let guard = CURRENT_CARD_ID.read().unwrap_or_else(|err| {
-        error!("Current card ID RwLock is poisoned: {:#}", err);
+        error!("Current card ID RwLock is poisoned: {err:#}");
         err.into_inner()
     });
 
@@ -92,13 +93,13 @@ pub fn is_current_card_id_whitelisted() -> bool {
     false
 }
 
-pub unsafe fn read_node_str(node: *const (), path: *const u8, length: usize) -> Option<String> {
+pub unsafe fn read_node_str(node: *const (), path: *const c_char, length: usize) -> Option<String> {
     let mut buffer = [0u8; 32];
     let result = unsafe {
         property_node_refer(
             node,
             node,
-            path,
+            path as _,
             NodeType::NodeStr,
             buffer.as_mut_ptr() as *mut (),
             32,

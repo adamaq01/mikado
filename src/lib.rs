@@ -21,7 +21,7 @@ lazy_static! {
     pub static ref CONFIGURATION: Configuration = {
         let result = Configuration::load();
         if let Err(err) = result {
-            error!("{:#}", err);
+            error!("{err:#}");
             std::process::exit(1);
         }
 
@@ -31,7 +31,7 @@ lazy_static! {
         let result = Url::parse(&CONFIGURATION.tachi.base_url)
             .and_then(|url| url.join(&CONFIGURATION.tachi.status));
         if let Err(err) = result {
-            error!("Could not parse Tachi status URL: {:#}", err);
+            error!("Could not parse Tachi status URL: {err:#}");
             std::process::exit(1);
         }
 
@@ -41,7 +41,7 @@ lazy_static! {
         let result = Url::parse(&CONFIGURATION.tachi.base_url)
             .and_then(|url| url.join(&CONFIGURATION.tachi.import));
         if let Err(err) = result {
-            error!("Could not parse Tachi import URL: {:#}", err);
+            error!("Could not parse Tachi import URL: {err:#}");
             std::process::exit(1);
         }
 
@@ -51,7 +51,7 @@ lazy_static! {
         let result = Url::parse(&CONFIGURATION.tachi.base_url)
             .and_then(|url| url.join(&CONFIGURATION.tachi.pbs));
         if let Err(err) = result {
-            error!("Could not parse Tachi import URL: {:#}", err);
+            error!("Could not parse Tachi import URL: {err:#}");
             std::process::exit(1);
         }
 
@@ -94,7 +94,7 @@ fn init_logger() {
 
             let time = chrono::Local::now().format("%d/%m/%Y %H:%M:%S");
 
-            writeln!(f, "[{}] {} {} -> {}", time, level, target, record.args())
+            writeln!(f, "[{time}] {level} {target} -> {}", record.args())
         })
         .init();
 }
@@ -107,7 +107,7 @@ fn print_infos() {
     );
 
     if let Some(build_date) = option_env!("VERGEN_BUILD_DATE") {
-        info!("Build date: {}", build_date);
+        info!("Build date: {build_date}");
     }
 }
 
@@ -123,8 +123,7 @@ fn check_for_update() -> anyhow::Result<()> {
         .and_then(|tag| {
             helpers::request_agent()
                 .get(&format!(
-                    "https://api.github.com/repos/adamaq01/mikado/git/refs/tags/{}",
-                    tag
+                    "https://api.github.com/repos/adamaq01/mikado/git/refs/tags/{tag}"
                 ))
                 .call()?
                 .into_json::<serde_json::Value>()?
@@ -145,7 +144,7 @@ fn check_for_update() -> anyhow::Result<()> {
 #[crochet::hook("avs2-ea3.dll", "XEmdwapa000024")]
 unsafe fn avs_ea3_boot_startup_hook(node: *const ()) -> i32 {
     if let Err(err) = hook_init(node) {
-        error!("{:#}", err);
+        error!("{err:#}");
     }
 
     call_original!(node)
@@ -161,20 +160,20 @@ extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: DWORD, reserved: 
 
             print_infos();
             if let Err(err) = check_for_update() {
-                error!("Unable to get update informations {:#}", err);
+                error!("Unable to get update informations {err:#}");
             }
 
             if let Err(err) = crochet::enable!(avs_ea3_boot_startup_hook) {
-                error!("{:#}", err);
+                error!("{err:#}");
             }
         }
         DLL_PROCESS_DETACH => {
             if let Err(err) = crochet::disable!(avs_ea3_boot_startup_hook) {
-                error!("{:#}", err);
+                error!("{err:#}");
             }
 
             if let Err(err) = hook_release() {
-                error!("{:#}", err);
+                error!("{err:#}");
             }
         }
         _ => {}

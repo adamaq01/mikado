@@ -27,14 +27,14 @@ pub enum NotSupportedReason<'a> {
 impl GameProperties {
     pub unsafe fn from_ea3_node(node: *const ()) -> Option<GameProperties> {
         let model =
-            unsafe { helpers::read_node_str(node, b"/soft/model\0".as_ptr(), 3) }?.into_boxed_str();
+            unsafe { helpers::read_node_str(node, c"/soft/model".as_ptr(), 3) }?.into_boxed_str();
         let dest =
-            unsafe { helpers::read_node_str(node, b"/soft/dest\0".as_ptr(), 1) }?.into_boxed_str();
+            unsafe { helpers::read_node_str(node, c"/soft/dest".as_ptr(), 1) }?.into_boxed_str();
         let spec =
-            unsafe { helpers::read_node_str(node, b"/soft/spec\0".as_ptr(), 1) }?.into_boxed_str();
+            unsafe { helpers::read_node_str(node, c"/soft/spec".as_ptr(), 1) }?.into_boxed_str();
         let revision =
-            unsafe { helpers::read_node_str(node, b"/soft/rev\0".as_ptr(), 1) }?.into_boxed_str();
-        let ext = unsafe { helpers::read_node_str(node, b"/soft/ext\0".as_ptr(), 10) }?
+            unsafe { helpers::read_node_str(node, c"/soft/rev".as_ptr(), 1) }?.into_boxed_str();
+        let ext = unsafe { helpers::read_node_str(node, c"/soft/ext".as_ptr(), 10) }?
             .parse()
             .unwrap_or(0);
 
@@ -113,10 +113,10 @@ impl Display for NotSupportedReason<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             NotSupportedReason::WrongModel(model) => {
-                write!(f, "Game model '{}' is not related to chicken", model)
+                write!(f, "Game model '{model}' is not related to chicken")
             }
             NotSupportedReason::OmnimixDetected => write!(f, "Omnimix/Plus detected"),
-            NotSupportedReason::TooOld(ext) => write!(f, "Game version '{}' is too old", ext),
+            NotSupportedReason::TooOld(ext) => write!(f, "Game version '{ext}' is too old"),
         }
     }
 }
