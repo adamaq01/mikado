@@ -1,5 +1,5 @@
 use crate::types::game::GameScores;
-use crate::types::tachi::{Difficulty, HitMeta, Import, ImportScore, Judgements, TachiLamp};
+use crate::types::tachi::{HitMeta, Import, ImportScore, Judgements, TachiDifficulty, TachiLamp};
 use crate::{helpers, CONFIGURATION, TACHI_IMPORT_URL};
 use anyhow::Result;
 use either::Either;
@@ -44,7 +44,7 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
             lamp: TachiLamp::from(track.clear_type),
             match_type: "sdvxInGameID".to_string(),
             identifier: track.music_id.to_string(),
-            difficulty: Difficulty::from(track.music_type),
+            difficulty: TachiDifficulty::from(track.music_type),
             time_achieved,
             judgements: Judgements {
                 critical: track.critical,

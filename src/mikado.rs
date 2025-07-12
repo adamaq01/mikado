@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::RwLock;
+use std::sync::{OnceLock, RwLock};
 
 use anyhow::Result;
 use bytes::Bytes;
@@ -14,51 +14,40 @@ use crate::sys::{
     property_query_size, property_search, property_set_flag, NodeType,
 };
 use crate::types::game::Property;
+use crate::types::GameProperties;
 use crate::{helpers, CONFIGURATION, TACHI_STATUS_URL};
 
 pub static USER: AtomicU64 = AtomicU64::new(0);
 pub static CURRENT_CARD_ID: RwLock<Option<String>> = RwLock::new(None);
-pub static IS_VALKYRIE: AtomicBool = AtomicBool::new(false);
+pub static GAME_PROPERTIES: OnceLock<GameProperties> = OnceLock::new();
 
 pub fn hook_init(ea3_node: *const ()) -> Result<()> {
     if !CONFIGURATION.general.enable {
         return Ok(());
     }
 
-    if let Some((model, dest, spec, revision, ext)) =
-        helpers::read_node_str(ea3_node, b"/soft/model\0".as_ptr(), 3).and_then(|model| {
-            let dest = helpers::read_node_str(ea3_node, b"/soft/dest\0".as_ptr(), 1)?;
-            let spec = helpers::read_node_str(ea3_node, b"/soft/spec\0".as_ptr(), 1)?;
-            let revision = helpers::read_node_str(ea3_node, b"/soft/rev\0".as_ptr(), 1)?;
-            let ext = helpers::read_node_str(ea3_node, b"/soft/ext\0".as_ptr(), 10)?
-                .parse::<u64>()
-                .unwrap_or(0);
-            Some((model, dest, spec, revision, ext))
-        })
-    {
-        IS_VALKYRIE.store(spec == "G" || spec == "H", Ordering::Relaxed);
-
-        if model != "KFC" || revision == "O" || revision == "X" || ext < 2022083000 {
-            error!(
-                "Unsupported model/revision/ext '{}:{}:{}:{}:{}', hook will not be enabled",
-                model, dest, spec, revision, ext
-            );
-            return Ok(());
-        } else if spec == "G" || spec == "H" {
-            info!(
-                "Detected game software '{}:{}:{}:{}:{}' (Valkyrie Model)",
-                model, dest, spec, revision, ext
-            );
-        } else {
-            info!(
-                "Detected game software '{}:{}:{}:{}:{}'",
-                model, dest, spec, revision, ext
-            );
+    let game_properties = {
+        let properties = unsafe { GameProperties::from_ea3_node(ea3_node) };
+        if properties.is_none() {
+            warn!("Could not read game version, hook might not work properly");
         }
-    } else {
-        warn!("Could not read game version, hook might not work properly");
+        match properties {
+            Some(properties) => {
+                if let Some(err) = properties.is_not_supported() {
+                    error!("Unsupported configuration, hook will not be enabled\nReason: {err}",);
+                    return Ok(());
+                }
+                properties
+            }
+            None => GameProperties::default(),
+        }
+    };
+    if GAME_PROPERTIES.set(game_properties).is_err() {
+        error!("Failure to set game properties, hook will not be enabled");
+        return Ok(());
     }
-    // Trying to reach Tachi API
+
+    // Try to reach Tachi API
     let response: serde_json::Value =
         helpers::request_tachi("GET", TACHI_STATUS_URL.as_str(), None::<()>)?;
     let user = response["body"]["whoami"]

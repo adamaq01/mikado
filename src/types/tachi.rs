@@ -1,4 +1,4 @@
-use num_enum::FromPrimitive;
+use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -69,7 +69,7 @@ pub struct ImportScore {
     #[serde(rename = "matchType")]
     pub match_type: String,
     pub identifier: String,
-    pub difficulty: Difficulty,
+    pub difficulty: TachiDifficulty,
     #[serde(rename = "timeAchieved")]
     pub time_achieved: u128,
     pub judgements: Judgements,
@@ -77,7 +77,7 @@ pub struct ImportScore {
     pub hit_meta: HitMeta,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, FromPrimitive, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, FromPrimitive, IntoPrimitive, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum TachiLamp {
     #[num_enum(default)]
@@ -95,9 +95,9 @@ pub enum TachiLamp {
     MaxxiveClear = 6,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, FromPrimitive, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, FromPrimitive, IntoPrimitive, Serialize, Deserialize)]
 #[repr(u32)]
-pub enum Difficulty {
+pub enum TachiDifficulty {
     #[num_enum(default)]
     #[serde(rename = "NOV")]
     Novice = 0,

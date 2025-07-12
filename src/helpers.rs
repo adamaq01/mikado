@@ -92,7 +92,7 @@ pub fn is_current_card_id_whitelisted() -> bool {
     false
 }
 
-pub fn read_node_str(node: *const (), path: *const u8, length: usize) -> Option<String> {
+pub unsafe fn read_node_str(node: *const (), path: *const u8, length: usize) -> Option<String> {
     let mut buffer = [0u8; 32];
     let result = unsafe {
         property_node_refer(
