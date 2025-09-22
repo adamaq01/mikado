@@ -82,7 +82,7 @@ impl GameProperties {
     pub fn has_maxxive_support(&self) -> bool {
         self.maxxive_support
     }
-    
+
     pub fn has_ultimate_support(&self) -> bool {
         self.ultimate_support
     }
@@ -91,6 +91,7 @@ impl GameProperties {
         if self.model() != "KFC" {
             Some(NotSupportedReason::WrongModel(self.model()))
         } else if self.dest() == "O" || self.dest() == "X" {
+            // TODO: Doesn't work because this is set by a patch in the game start function
             Some(NotSupportedReason::OmnimixDetected)
         } else if self.ext() < 2022083000 {
             Some(NotSupportedReason::TooOld(self.ext()))
