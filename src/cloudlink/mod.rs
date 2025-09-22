@@ -90,18 +90,15 @@ pub fn process_pbs(user: &str, music: &Node) -> Result<Node> {
             "Could not parse PB score from Tachi PBs API"
         ))?;
         let lamp: u32 = match serde_json::from_value::<TachiLamp>(pb["scoreData"]["lamp"].clone()) {
-            Ok(lamp) => match lamp {
-                TachiLamp::MaxxiveClear
-                    if !mikado::GAME_PROPERTIES
-                        .get()
-                        .map(|p| p.has_maxxive_support())
-                        .unwrap_or_default() =>
-                {
-                    TachiLamp::ExcessiveClear
-                }
-                _ => lamp,
+            Ok(TachiLamp::MaxxiveClear)
+                if !mikado::GAME_PROPERTIES
+                    .get()
+                    .map(|p| p.has_maxxive_support())
+                    .unwrap_or_default() =>
+            {
+                TachiLamp::ExcessiveClear.into()
             }
-            .into(),
+            Ok(lamp) => lamp.into(),
             Err(_) => 0,
         };
         let grade = pb["scoreData"]["enumIndexes"]["grade"]

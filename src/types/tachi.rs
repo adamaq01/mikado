@@ -109,6 +109,8 @@ pub enum TachiDifficulty {
     AnyInfinite = 3,
     #[serde(rename = "MXM")]
     Maximum = 4,
+    #[serde(rename = "ULT")]
+    Ultimate = 5,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

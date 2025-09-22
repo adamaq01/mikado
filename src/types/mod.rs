@@ -15,6 +15,7 @@ pub struct GameProperties {
     // Derived props
     valkyrie: bool,
     maxxive_support: bool,
+    ultimate_support: bool,
 }
 
 pub enum NotSupportedReason<'a> {
@@ -40,6 +41,7 @@ impl GameProperties {
 
         let valkyrie = spec.as_ref() == "G" || spec.as_ref() == "H";
         let maxxive_support = ext >= 2025042200;
+        let ultimate_support = ext >= 2025062400; // Actually it is 2025062401 but let's be more lenient
 
         Some(GameProperties {
             model,
@@ -49,6 +51,7 @@ impl GameProperties {
             ext,
             valkyrie,
             maxxive_support,
+            ultimate_support,
         })
     }
 
@@ -79,6 +82,10 @@ impl GameProperties {
     pub fn has_maxxive_support(&self) -> bool {
         self.maxxive_support
     }
+    
+    pub fn has_ultimate_support(&self) -> bool {
+        self.ultimate_support
+    }
 
     pub fn is_not_supported(&self) -> Option<NotSupportedReason<'_>> {
         if self.model() != "KFC" {
@@ -104,6 +111,9 @@ impl Display for GameProperties {
         }
         if self.maxxive_support {
             f.write_str(" (Maxxive support)")?;
+        }
+        if self.ultimate_support {
+            f.write_str(" (Ultimate support)")?;
         }
         Ok(())
     }
