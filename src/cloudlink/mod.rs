@@ -24,7 +24,10 @@ fn build_response_base(scores: Vec<Node>) -> Node {
 // TODO: Refactor this whole mess
 pub fn process_pbs(user: &str, music: &Node) -> Result<Node> {
     let url = dynfmt::SimpleCurlyFormat.format(TACHI_PBS_URL.as_str(), [user])?;
-    let response: serde_json::Value = helpers::request_tachi("GET", url, None::<()>)?;
+
+    let user = helpers::get_current_user().ok_or(anyhow::anyhow!("No user during PB processing"))?;
+
+    let response: serde_json::Value = helpers::request_tachi("GET", url, user.card_config.api_key, None::<()>)?;
     let body = response["body"].as_object().ok_or(anyhow::anyhow!(
         "Could not parse response body from Tachi PBs API"
     ))?;
