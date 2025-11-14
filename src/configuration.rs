@@ -1,5 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -7,7 +8,7 @@ use std::path::Path;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Configuration {
     pub general: GeneralConfiguration,
-    pub cards: CardsConfiguration,
+    pub cards: HashMap<String, CardConfiguration>,
     pub tachi: TachiConfiguration,
 }
 
@@ -45,16 +46,16 @@ fn default_timeout() -> u64 {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct CardsConfiguration {
-    #[serde(default)]
-    pub whitelist: Vec<String>,
+pub struct CardConfiguration {
+    pub api_key: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TachiConfiguration {
+    // TODO: it could be useful to move base_url to CardConfiguration as well
+    //       in case different users want different Tachi instances
     pub base_url: String,
     pub status: String,
     pub import: String,
     pub pbs: String,
-    pub api_key: String,
 }

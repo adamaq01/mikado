@@ -1,6 +1,6 @@
 use crate::types::game::GameScores;
 use crate::types::tachi::{HitMeta, Import, ImportScore, Judgements, TachiDifficulty, TachiLamp};
-use crate::{helpers, CONFIGURATION, TACHI_IMPORT_URL};
+use crate::{helpers, TACHI_IMPORT_URL};
 use anyhow::Result;
 use either::Either;
 use log::info;
@@ -10,17 +10,9 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
         info!("Guest play, skipping score(s) submission");
         return Ok(());
     }
-    let card = if let Some(card) = helpers::get_current_card_id() {
-        if !CONFIGURATION.cards.whitelist.is_empty()
-            && !CONFIGURATION.cards.whitelist.contains(&card)
-        {
-            info!("Card {card} is not whitelisted, skipping score(s) submission");
-            return Ok(());
-        }
 
-        card
-    } else {
-        info!("Card ID is not set, skipping score(s) submission");
+    let Some(user) = helpers::get_current_user() else {
+        info!("User is not set, skipping score(s) submission");
         return Ok(());
     };
 
@@ -68,8 +60,8 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
         scores,
     };
 
-    helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), Some(import))?;
-    info!("Successfully imported score(s) for card {card}");
+    helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), user.card_config.api_key, Some(import))?;
+    info!("Successfully imported score(s) for card {0}", user.card_id);
 
     Ok(())
 }

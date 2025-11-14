@@ -8,13 +8,6 @@ inject_cloud_pbs = true
 # Timeout for web requests, in milliseconds
 timeout = 3000
 
-[cards]
-# Card numbers that should be whitelisted
-# If this is empty, all cards will be whitelisted
-# E000 format, should be in single quotes and separated by commas
-# Example: whitelist = ['E000000000', 'E000000001']
-whitelist = []
-
 [tachi]
 # Tachi instance base URL
 base_url = 'https://kamaitachi.xyz/'
@@ -24,5 +17,12 @@ status = '/api/v1/status'
 import = '/ir/direct-manual/import'
 # Tachi pbs endpoint
 pbs = '/api/v1/users/{}/games/sdvx/Single/pbs/all'
-# Your Tachi API key
+
+# The Tachi API key to use for any card
+# If you only want specific cards to be recognized, omit this default entry
+[cards.default]
 api_key = 'your-key-here'
+
+# Example of a specific card entry
+# [cards.'E000000001']
+# api_key = 'another-key-here'
