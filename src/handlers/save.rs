@@ -1,6 +1,6 @@
 use crate::types::game::GameSave;
 use crate::types::tachi::{Import, ImportClasses, SkillLevel};
-use crate::{helpers, CONFIGURATION, TACHI_IMPORT_URL};
+use crate::{helpers, TACHI_IMPORT_URL};
 use anyhow::Result;
 use log::info;
 
@@ -9,17 +9,9 @@ pub fn process_save(save: GameSave) -> Result<()> {
         info!("Guest play, skipping class update");
         return Ok(());
     }
-    let card = if let Some(card) = helpers::get_current_card_id() {
-        if !CONFIGURATION.cards.whitelist.is_empty()
-            && !CONFIGURATION.cards.whitelist.contains(&card)
-        {
-            info!("Card {card} is not whitelisted, skipping class update");
-            return Ok(());
-        }
 
-        card
-    } else {
-        info!("Card ID is not set, skipping class update");
+    let Some(user) = helpers::get_current_user() else {
+        info!("User is not set, skipping class update");
         return Ok(());
     };
 
@@ -31,8 +23,8 @@ pub fn process_save(save: GameSave) -> Result<()> {
         scores: vec![],
     };
 
-    helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), Some(import))?;
-    info!("Successfully updated class for card {card}");
+    helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), user.profile.config.api_key, Some(import))?;
+    info!("Successfully updated class for card {0}", user.card_id);
 
     Ok(())
 }

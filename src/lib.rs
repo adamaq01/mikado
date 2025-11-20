@@ -7,9 +7,12 @@ mod mikado;
 mod sys;
 mod types;
 
+use std::collections::HashMap;
+
+use crate::configuration::Profile;
 use crate::log::Logger;
 use crate::mikado::{hook_init, hook_release};
-use ::log::{error, info};
+use ::log::{error, info, warn};
 use configuration::Configuration;
 use lazy_static::lazy_static;
 use url::Url;
@@ -26,6 +29,30 @@ lazy_static! {
         }
 
         result.unwrap()
+    };
+    pub static ref CARD_PROFILES: HashMap<String, Profile> = {
+        let mut cards: HashMap<String, Profile> = HashMap::new();
+
+        for (profile_name, profile_config) in &CONFIGURATION.profiles {
+            for card in &profile_config.cards {
+                if let Some(existing_profile) = cards.get(card) {
+                    warn!(
+                        "Card {} is already assigned to profile \"{}\" but appears again in profile \"{}\". Ignoring.",
+                        card, &existing_profile.name, &profile_name
+                    );
+                    continue;
+                }
+                cards.insert(
+                    card.to_string(),
+                    Profile {
+                        name: profile_name.clone(),
+                        config: profile_config.clone(),
+                    },
+                );
+            }
+        }
+
+        cards
     };
     pub static ref TACHI_STATUS_URL: String = {
         let result = Url::parse(&CONFIGURATION.tachi.base_url)
