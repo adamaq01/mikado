@@ -23,7 +23,7 @@ pub fn process_save(save: GameSave) -> Result<()> {
         scores: vec![],
     };
 
-    helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), user.card_config.api_key, Some(import))?;
+    helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), user.profile.config.api_key, Some(import))?;
     info!("Successfully updated class for card {0}", user.card_id);
 
     Ok(())

@@ -6,7 +6,7 @@ use bytes::Bytes;
 use kbinxml::{CompressionType, EncodingType, Node, Options, Value};
 use log::{debug, error, info, warn};
 
-use crate::configuration::CardConfiguration;
+use crate::configuration::Profile;
 use crate::handlers::save::process_save;
 use crate::handlers::scores::process_scores;
 use crate::sys::{
@@ -21,7 +21,7 @@ use crate::{helpers, CONFIGURATION, TACHI_STATUS_URL};
 pub struct User {
     pub tachi_id: u64,
     pub card_id: String,
-    pub card_config: CardConfiguration,
+    pub profile: Profile,
 }
 
 pub static CURRENT_USER: RwLock<Option<User>> = RwLock::new(None);
@@ -308,9 +308,9 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
             result.unwrap().replace('\0', "")
         };
 
-        let card_config = helpers::get_card_config(&card_id);
-        if card_config.is_none() {
-            warn!("No config for card {card_id}");
+        let profile = helpers::get_profile(&card_id);
+        if profile.is_none() {
+            warn!("No profile for card {card_id}");
         }
 
         // Try to reach Tachi API
@@ -323,8 +323,8 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
                 .ok_or(anyhow::anyhow!("Couldn't parse user from Tachi response"))
         }
 
-        let tachi_id = card_config.as_ref().and_then(|card_config| {
-            let key = card_config.api_key.clone();
+        let tachi_id = profile.as_ref().and_then(|profile| {
+            let key = profile.config.api_key.clone();
             match get_tachi_user(key) {
                 Ok(user) => {
                     debug!("Tachi API reached, set current user to {user}");
@@ -339,12 +339,12 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
 
         if let Ok(mut guard) = CURRENT_USER.write() {
             let user = tachi_id.and_then(|tachi_id| {
-                card_config.map(|card_config| {
-                    info!("Setting current user: card is {card_id}, tachi is {tachi_id}");
+                profile.map(|profile| {
+                    info!("Setting current profile to \"{}\": card is {}, tachi is {}", &profile.name, card_id, tachi_id);
                     User {
                         tachi_id,
                         card_id,
-                        card_config,
+                        profile,
                     }
                 })
             });

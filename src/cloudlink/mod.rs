@@ -27,7 +27,7 @@ pub fn process_pbs(user: &str, music: &Node) -> Result<Node> {
 
     let user = helpers::get_current_user().ok_or(anyhow::anyhow!("No user during PB processing"))?;
 
-    let response: serde_json::Value = helpers::request_tachi("GET", url, user.card_config.api_key, None::<()>)?;
+    let response: serde_json::Value = helpers::request_tachi("GET", url, user.profile.config.api_key, None::<()>)?;
     let body = response["body"].as_object().ok_or(anyhow::anyhow!(
         "Could not parse response body from Tachi PBs API"
     ))?;

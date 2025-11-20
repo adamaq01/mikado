@@ -1,7 +1,7 @@
-use crate::configuration::CardConfiguration;
-use crate::mikado::{CURRENT_USER, User};
+use crate::configuration::{Profile, ProfileConfiguration};
+use crate::mikado::{User, CURRENT_USER};
 use crate::sys::{property_node_refer, NodeType};
-use crate::CONFIGURATION;
+use crate::{CARD_PROFILES, CONFIGURATION};
 use anyhow::Result;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
@@ -82,8 +82,27 @@ pub fn get_current_user() -> Option<User> {
     guard.clone()
 }
 
-pub fn get_card_config(card: impl AsRef<str>) -> Option<CardConfiguration> {
-    CONFIGURATION.cards.get(card.as_ref()).or(CONFIGURATION.cards.get("default")).cloned()
+pub fn get_profile(card: impl AsRef<str>) -> Option<Profile> {
+    // find the card in a profile ...
+    CARD_PROFILES
+        .get(card.as_ref())
+        .cloned()
+        // ... or fallback to single-user config, if present
+        .or_else(|| {
+            let cards_config = CONFIGURATION.cards.as_ref()?;
+            let api_key = CONFIGURATION.tachi.api_key.as_ref()?;
+
+            let is_whitelisted = cards_config.whitelist.is_empty()
+                || cards_config.whitelist.contains(&card.as_ref().to_string());
+
+            is_whitelisted.then(|| Profile {
+                name: "default".to_string(),
+                config: ProfileConfiguration {
+                    api_key: api_key.to_string(),
+                    cards: cards_config.whitelist.clone(),
+                },
+            })
+        })
 }
 
 pub unsafe fn read_node_str(node: *const (), path: *const c_char, length: usize) -> Option<String> {

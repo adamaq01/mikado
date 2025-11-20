@@ -60,7 +60,7 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
         scores,
     };
 
-    helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), user.card_config.api_key, Some(import))?;
+    helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), user.profile.config.api_key, Some(import))?;
     info!("Successfully imported score(s) for card {0}", user.card_id);
 
     Ok(())

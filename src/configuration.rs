@@ -8,7 +8,10 @@ use std::path::Path;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Configuration {
     pub general: GeneralConfiguration,
-    pub cards: HashMap<String, CardConfiguration>,
+    #[serde(default)]
+    pub cards: Option<CardsConfiguration>,
+    #[serde(default)]
+    pub profiles: HashMap<String, ProfileConfiguration>,
     pub tachi: TachiConfiguration,
 }
 
@@ -46,16 +49,31 @@ fn default_timeout() -> u64 {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct CardConfiguration {
+pub struct CardsConfiguration {
+    #[serde(default)]
+    pub whitelist: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProfileConfiguration {
+    pub cards: Vec<String>,
     pub api_key: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Profile {
+    pub name: String,
+    pub config: ProfileConfiguration,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TachiConfiguration {
-    // TODO: it could be useful to move base_url to CardConfiguration as well
+    // TODO: it could be useful to move base_url to ProfileConfiguration as well
     //       in case different users want different Tachi instances
     pub base_url: String,
     pub status: String,
     pub import: String,
     pub pbs: String,
+    #[serde(default)]
+    pub api_key: Option<String>,
 }
