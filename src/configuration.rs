@@ -1,5 +1,6 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -7,7 +8,10 @@ use std::path::Path;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Configuration {
     pub general: GeneralConfiguration,
-    pub cards: CardsConfiguration,
+    #[serde(default)]
+    pub cards: Option<CardsConfiguration>,
+    #[serde(default)]
+    pub profiles: HashMap<String, ProfileConfiguration>,
     pub tachi: TachiConfiguration,
 }
 
@@ -51,10 +55,25 @@ pub struct CardsConfiguration {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProfileConfiguration {
+    pub cards: Vec<String>,
+    pub api_key: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Profile {
+    pub name: String,
+    pub config: ProfileConfiguration,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TachiConfiguration {
+    // TODO: it could be useful to move base_url to ProfileConfiguration as well
+    //       in case different users want different Tachi instances
     pub base_url: String,
     pub status: String,
     pub import: String,
     pub pbs: String,
-    pub api_key: String,
+    #[serde(default)]
+    pub api_key: Option<String>,
 }

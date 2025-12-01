@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{OnceLock, RwLock};
 
 use anyhow::Result;
@@ -6,9 +6,9 @@ use bytes::Bytes;
 use kbinxml::{CompressionType, EncodingType, Node, Options, Value};
 use log::{debug, error, info, warn};
 
+use crate::configuration::Profile;
 use crate::handlers::save::process_save;
 use crate::handlers::scores::process_scores;
-use crate::helpers::is_current_card_id_whitelisted;
 use crate::sys::{
     property_clear_error, property_mem_write, property_node_name, property_node_refer,
     property_query_size, property_search, property_set_flag, NodeType,
@@ -17,8 +17,14 @@ use crate::types::game::Property;
 use crate::types::GameProperties;
 use crate::{helpers, CONFIGURATION, TACHI_STATUS_URL};
 
-pub static USER: AtomicU64 = AtomicU64::new(0);
-pub static CURRENT_CARD_ID: RwLock<Option<String>> = RwLock::new(None);
+#[derive(Clone)]
+pub struct User {
+    pub tachi_id: u64,
+    pub card_id: String,
+    pub profile: Profile,
+}
+
+pub static CURRENT_USER: RwLock<Option<User>> = RwLock::new(None);
 pub static GAME_PROPERTIES: OnceLock<GameProperties> = OnceLock::new();
 
 pub fn hook_init(ea3_node: *const ()) -> Result<()> {
@@ -46,15 +52,6 @@ pub fn hook_init(ea3_node: *const ()) -> Result<()> {
         error!("Failure to set game properties, hook will not be enabled");
         return Ok(());
     }
-
-    // Try to reach Tachi API
-    let response: serde_json::Value =
-        helpers::request_tachi("GET", TACHI_STATUS_URL.as_str(), None::<()>)?;
-    let user = response["body"]["whoami"]
-        .as_u64()
-        .ok_or(anyhow::anyhow!("Couldn't parse user from Tachi response"))?;
-    USER.store(user, Ordering::Relaxed);
-    info!("Tachi API successfully reached, user {user}");
 
     // Initializing function detours
     crochet::enable!(property_destroy_hook)
@@ -187,7 +184,7 @@ pub unsafe fn property_mem_read_hook_wrapped(
 
             Ok(response)
         })())
-    } else if is_current_card_id_whitelisted()
+    } else if helpers::get_current_user().is_some()
         && load
             .then(|| root.pointer(&["game", "code"]))
             .flatten()
@@ -208,10 +205,10 @@ pub unsafe fn property_mem_read_hook_wrapped(
             Ok(response)
         })())
     } else if let Some(music) = load_m.then(|| root.pointer(&["game", "music"])).flatten() {
-        if is_current_card_id_whitelisted() {
+        if let Some(user) = helpers::get_current_user() {
             Some((|| {
-                let user = USER.load(Ordering::SeqCst).to_string();
-                let response = crate::cloudlink::process_pbs(user.as_str(), music)?;
+                let response =
+                    crate::cloudlink::process_pbs(user.tachi_id.to_string().as_str(), music)?;
                 let response = build_response(&original_signature, response, encoding)?;
                 LOAD_M.store(false, Ordering::Relaxed);
 
@@ -301,7 +298,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
             return call_original!(property);
         }
 
-        let cardid = {
+        let card_id = {
             let result = std::str::from_utf8(&buffer[..32]);
             if let Err(err) = result {
                 error!("Could not convert buffer to string: {err:#}");
@@ -311,11 +308,48 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
             result.unwrap().replace('\0', "")
         };
 
-        if let Ok(mut guard) = CURRENT_CARD_ID.write() {
-            debug!("Set current card id to {cardid}");
-            *guard = Some(cardid);
+        let profile = helpers::get_profile(&card_id);
+        if profile.is_none() {
+            warn!("No profile for card {card_id}");
+        }
+
+        // Try to reach Tachi API
+        fn get_tachi_user(key: impl AsRef<str>) -> Result<u64> {
+            let response: serde_json::Value =
+                helpers::request_tachi("GET", TACHI_STATUS_URL.as_str(), key, None::<()>)?;
+
+            response["body"]["whoami"]
+                .as_u64()
+                .ok_or(anyhow::anyhow!("Couldn't parse user from Tachi response"))
+        }
+
+        let tachi_id = profile.as_ref().and_then(|profile| {
+            let key = profile.config.api_key.clone();
+            match get_tachi_user(key) {
+                Ok(user) => {
+                    debug!("Tachi API reached, set current user to {user}");
+                    Some(user)
+                }
+                Err(e) => {
+                    warn!("did not set Tachi user: {e}");
+                    None
+                }
+            }
+        });
+
+        if let Ok(mut guard) = CURRENT_USER.write() {
+            *guard = tachi_id.and_then(|tachi_id| {
+                profile.map(|profile| {
+                    info!("Setting current profile to \"{}\": card is {}, tachi is {}", &profile.name, card_id, tachi_id);
+                    User {
+                        tachi_id,
+                        card_id,
+                        profile,
+                    }
+                })
+            });
         } else {
-            warn!("Could not acquire write lock on current card id");
+            warn!("Could not acquire write lock on current user");
         }
 
         return call_original!(property);
