@@ -78,7 +78,7 @@ pub fn get_current_user() -> Option<User> {
         error!("Current user RwLock is poisoned: {err:#}");
         err.into_inner()
     });
-    
+
     guard.clone()
 }
 

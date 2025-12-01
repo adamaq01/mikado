@@ -338,7 +338,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
         });
 
         if let Ok(mut guard) = CURRENT_USER.write() {
-            let user = tachi_id.and_then(|tachi_id| {
+            *guard = tachi_id.and_then(|tachi_id| {
                 profile.map(|profile| {
                     info!("Setting current profile to \"{}\": card is {}, tachi is {}", &profile.name, card_id, tachi_id);
                     User {
@@ -348,8 +348,6 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
                     }
                 })
             });
-
-            *guard = user;
         } else {
             warn!("Could not acquire write lock on current user");
         }
