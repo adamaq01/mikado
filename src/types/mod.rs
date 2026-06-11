@@ -17,6 +17,7 @@ pub struct GameProperties {
     valkyrie: bool,
     maxxive_support: bool,
     ultimate_support: bool,
+    nabla: bool,
 }
 
 pub enum NotSupportedReason<'a> {
@@ -43,6 +44,7 @@ impl GameProperties {
         let valkyrie = spec.as_ref() == "G" || spec.as_ref() == "H";
         let maxxive_support = ext >= 2025042200;
         let ultimate_support = ext >= 2025062400; // Actually it is 2025062401 but let's be more lenient
+        let nabla = ext > 2025120900;
 
         Some(GameProperties {
             model,
@@ -53,6 +55,7 @@ impl GameProperties {
             valkyrie,
             maxxive_support,
             ultimate_support,
+            nabla,
         })
     }
 
@@ -78,6 +81,10 @@ impl GameProperties {
 
     pub fn is_valkyrie(&self) -> bool {
         self.valkyrie
+    }
+
+    pub fn is_nabla(&self) -> bool {
+        self.nabla
     }
 
     pub fn has_maxxive_support(&self) -> bool {
@@ -110,6 +117,9 @@ impl Display for GameProperties {
         ))?;
         if self.valkyrie {
             f.write_str(" (Valkyrie)")?;
+        }
+        if self.nabla {
+            f.write_str(" (Nabla detected)")?;
         }
         if self.maxxive_support {
             f.write_str(" (Maxxive support)")?;

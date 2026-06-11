@@ -46,6 +46,12 @@ pub fn hook_init(ea3_node: *const ()) -> Result<()> {
         return Ok(());
     }
 
+    if GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
+        debug!("Nabla detected, using Nabla method prefix 'sv7'");
+    } else {
+        debug!("EG detected, using EG method prefix 'sv6'");
+    }
+
     // Initializing function detours
     crochet::enable!(property_destroy_hook)
         .map_err(|err| anyhow::anyhow!("Could not enable function detour: {:#}", err))?;
@@ -347,17 +353,32 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
         return call_original!(property);
     }
 
+    // Super ugly solution to allow both EG and Nabla support
+    let prefix;
+
+    if GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
+        prefix = "sv7";
+    } else {
+        prefix = "sv6";
+    }
+
+    let load_m_method = format!("{prefix}_load_m");
+    let common_method = format!("{prefix}_common");
+    let load_method = format!("{prefix}_load");
+    let save_m_method = format!("{prefix}_save_m");
+    let save_method = format!("{prefix}_save");
+
     if CONFIGURATION.general.inject_cloud_pbs {
-        if method == "sv6_load_m" {
+        if method == load_m_method {
             LOAD_M.store(true, Ordering::Relaxed);
-        } else if method == "sv6_common" {
+        } else if method == common_method {
             COMMON.store(true, Ordering::Relaxed);
-        } else if method == "sv6_load" {
+        } else if method == load_method {
             LOAD.store(true, Ordering::Relaxed);
         }
     }
 
-    if method != "sv6_save_m" && (!CONFIGURATION.general.export_class || method != "sv6_save") {
+    if method != save_m_method && (!CONFIGURATION.general.export_class || method != save_method) {
         return call_original!(property);
     }
 
@@ -389,7 +410,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
 
     debug!("Processing property: {property_str}");
     if let Err(err) = match method.as_str() {
-        "sv6_save_m" => serde_json::from_str::<Property>(property_str)
+        save_m_method => serde_json::from_str::<Property>(property_str)
             .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
             .and_then(|prop| {
                 process_scores(
@@ -399,7 +420,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
                         .ok_or(anyhow::anyhow!("Could not process scores property"))?,
                 )
             }),
-        "sv6_save" => serde_json::from_str::<Property>(property_str)
+        save_method => serde_json::from_str::<Property>(property_str)
             .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
             .and_then(|prop| {
                 process_save(
