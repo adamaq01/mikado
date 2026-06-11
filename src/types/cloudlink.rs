@@ -44,7 +44,7 @@ impl Score {
 
     pub fn cloud_score_mut(&mut self) -> &mut u32 {
         if mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
-            &mut self.property[18]
+            &mut self.property_nabla[18]
         } else {
             &mut self.property[17]
         }
@@ -52,7 +52,7 @@ impl Score {
 
     pub fn cloud_clear_mut(&mut self) -> &mut u32 {
         if mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
-            &mut self.property[20]
+            &mut self.property_nabla[20]
         } else {
             &mut self.property[18]
         }
@@ -60,7 +60,7 @@ impl Score {
 
     pub fn cloud_grade_mut(&mut self) -> &mut u32 {
         if mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
-            &mut self.property[21]
+            &mut self.property_nabla[21]
         } else {
             &mut self.property[19]
         }
