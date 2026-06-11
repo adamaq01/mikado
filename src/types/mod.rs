@@ -44,7 +44,7 @@ impl GameProperties {
         let valkyrie = spec.as_ref() == "G" || spec.as_ref() == "H";
         let maxxive_support = ext >= 2025042200;
         let ultimate_support = ext >= 2025062400; // Actually it is 2025062401 but let's be more lenient
-        let nabla = ext > 2025120900;
+        let nabla = ext >= 2025122400;
 
         Some(GameProperties {
             model,
