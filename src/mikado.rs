@@ -410,7 +410,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
 
     debug!("Processing property: {property_str}");
     if let Err(err) = match method.as_str() {
-        save_m_method => serde_json::from_str::<Property>(property_str)
+        _ if method.as_str() == save_m_method => serde_json::from_str::<Property>(property_str)
             .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
             .and_then(|prop| {
                 process_scores(
@@ -420,7 +420,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
                         .ok_or(anyhow::anyhow!("Could not process scores property"))?,
                 )
             }),
-        save_method => serde_json::from_str::<Property>(property_str)
+        _ if method.as_str() == save_method => serde_json::from_str::<Property>(property_str)
             .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
             .and_then(|prop| {
                 process_save(
