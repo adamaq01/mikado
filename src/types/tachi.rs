@@ -9,6 +9,14 @@ pub struct Import {
     pub scores: Vec<ImportScore>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ImportNabla {
+    pub meta: ImportMeta,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub classes: Option<ImportClasses>,
+    pub scores: Vec<ImportScoreNabla>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportMeta {
     pub game: String,
@@ -77,6 +85,21 @@ pub struct ImportScore {
     pub hit_meta: HitMeta,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportScoreNabla {
+    pub score: u32,
+    pub lamp: TachiLampNabla,
+    #[serde(rename = "matchType")]
+    pub match_type: String,
+    pub identifier: String,
+    pub difficulty: TachiDifficulty,
+    #[serde(rename = "timeAchieved")]
+    pub time_achieved: u128,
+    pub judgements: Judgements,
+    #[serde(rename = "hitMeta")]
+    pub hit_meta: HitMeta,
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, FromPrimitive, IntoPrimitive, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum TachiLamp {
@@ -93,6 +116,24 @@ pub enum TachiLamp {
     PerfectUltimateChain = 5,
     #[serde(rename = "MAXXIVE CLEAR")]
     MaxxiveClear = 6,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, FromPrimitive, IntoPrimitive, Serialize, Deserialize)]
+#[repr(u32)]
+pub enum TachiLampNabla {
+    #[num_enum(default)]
+    #[serde(rename = "FAILED")]
+    Failed = 1,
+    #[serde(rename = "CLEAR")]
+    Clear = 2,
+    #[serde(rename = "EXCESSIVE CLEAR")]
+    ExcessiveClear = 3,
+    #[serde(rename = "ULTIMATE CHAIN")]
+    UltimateChain = 5,
+    #[serde(rename = "PERFECT ULTIMATE CHAIN")]
+    PerfectUltimateChain = 6,
+    #[serde(rename = "MAXXIVE CLEAR")]
+    MaxxiveClear = 4,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, FromPrimitive, IntoPrimitive, Serialize, Deserialize)]

@@ -1,7 +1,7 @@
 mod ext;
 
 use crate::types::cloudlink::{Chart, Score};
-use crate::types::tachi::{TachiDifficulty, TachiLamp};
+use crate::types::tachi::{TachiDifficulty, TachiLamp, TachiLampNabla};
 use crate::types::user::User;
 use crate::{helpers, mikado, TACHI_PBS_URL};
 use anyhow::Result;
@@ -91,18 +91,36 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
         let score = pb["scoreData"]["score"].as_u64().ok_or(anyhow::anyhow!(
             "Could not parse PB score from Tachi PBs API"
         ))?;
-        let lamp: u32 = match serde_json::from_value::<TachiLamp>(pb["scoreData"]["lamp"].clone()) {
-            Ok(TachiLamp::MaxxiveClear)
-                if !mikado::GAME_PROPERTIES
-                    .get()
-                    .map(|p| p.has_maxxive_support())
-                    .unwrap_or_default() =>
-            {
-                TachiLamp::ExcessiveClear.into()
-            }
-            Ok(lamp) => lamp.into(),
-            Err(_) => 0,
-        };
+
+        let lamp: u32;
+        if mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
+            lamp = match serde_json::from_value::<TachiLampNabla>(pb["scoreData"]["lamp"].clone()) {
+                Ok(TachiLampNabla::MaxxiveClear)
+                    if !mikado::GAME_PROPERTIES
+                        .get()
+                        .map(|p| p.has_maxxive_support())
+                        .unwrap_or_default() =>
+                {
+                    TachiLampNabla::ExcessiveClear.into()
+                }
+                Ok(lamp) => lamp.into(),
+                Err(_) => 0,
+            };
+        } else {
+            lamp = match serde_json::from_value::<TachiLamp>(pb["scoreData"]["lamp"].clone()) {
+                Ok(TachiLamp::MaxxiveClear)
+                    if !mikado::GAME_PROPERTIES
+                        .get()
+                        .map(|p| p.has_maxxive_support())
+                        .unwrap_or_default() =>
+                {
+                    TachiLamp::ExcessiveClear.into()
+                }
+                Ok(lamp) => lamp.into(),
+                Err(_) => 0,
+            };
+        }
+        
         let grade = pb["scoreData"]["enumIndexes"]["grade"]
             .as_u64()
             .ok_or(anyhow::anyhow!(

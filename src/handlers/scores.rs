@@ -1,6 +1,6 @@
 use crate::types::game::GameScores;
-use crate::types::tachi::{HitMeta, Import, ImportScore, Judgements, TachiDifficulty, TachiLamp};
-use crate::{helpers, TACHI_IMPORT_URL};
+use crate::types::tachi::{HitMeta, Import, ImportNabla, ImportScore, ImportScoreNabla, Judgements, TachiDifficulty, TachiLamp, TachiLampNabla};
+use crate::{helpers, mikado, TACHI_IMPORT_URL};
 use anyhow::Result;
 use either::Either;
 use log::info;
@@ -25,43 +25,81 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
         .elapsed()
         .map(|duration| duration.as_millis())
         .map_err(|err| anyhow::anyhow!("Could not get time from System {:#}", err))?;
-
-    let scores = tracks
-        .into_iter()
-        .map(|track| ImportScore {
-            score: track.score,
-            lamp: TachiLamp::from(track.clear_type),
-            match_type: "sdvxInGameID".to_string(),
-            identifier: track.music_id.to_string(),
-            difficulty: TachiDifficulty::from(track.music_type),
-            time_achieved,
-            judgements: Judgements {
-                critical: track.critical,
-                near: track.near,
-                miss: track.error,
-            },
-            hit_meta: HitMeta {
-                fast: track.judge[0],
-                slow: track.judge[6],
-                max_combo: track.max_chain,
-                ex_score: if track.ex_score != 0 {
-                    Some(track.ex_score)
-                } else {
-                    None
+    if mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
+        let scores = tracks
+            .into_iter()
+            .map(|track| ImportScoreNabla {
+                score: track.score,
+                lamp: TachiLampNabla::from(track.clear_type),
+                match_type: "sdvxInGameID".to_string(),
+                identifier: track.music_id.to_string(),
+                difficulty: TachiDifficulty::from(track.music_type),
+                time_achieved,
+                judgements: Judgements {
+                    critical: track.critical,
+                    near: track.near,
+                    miss: track.error,
                 },
-                gauge: track.effective_rate as f32 / 100.0,
-            },
-        })
-        .collect();
+                hit_meta: HitMeta {
+                    fast: track.judge[0],
+                    slow: track.judge[6],
+                    max_combo: track.max_chain,
+                    ex_score: if track.ex_score != 0 {
+                        Some(track.ex_score)
+                    } else {
+                        None
+                    },
+                    gauge: track.effective_rate as f32 / 100.0,
+                },
+            })
+            .collect();
 
-    let import = Import {
-        meta: Default::default(),
-        classes: None,
-        scores,
-    };
+        let import = ImportNabla {
+            meta: Default::default(),
+            classes: None,
+            scores,
+        };
 
-    helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), &user.profile.api_key, Some(import))?;
-    info!("Successfully imported score(s) for card {}", user.card_id);
+        helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), &user.profile.api_key, Some(import))?;
+        info!("Successfully imported score(s) for card {}", user.card_id);
+    } else {
+        let scores = tracks
+            .into_iter()
+            .map(|track| ImportScore {
+                score: track.score,
+                lamp: TachiLamp::from(track.clear_type),
+                match_type: "sdvxInGameID".to_string(),
+                identifier: track.music_id.to_string(),
+                difficulty: TachiDifficulty::from(track.music_type),
+                time_achieved,
+                judgements: Judgements {
+                    critical: track.critical,
+                    near: track.near,
+                    miss: track.error,
+                },
+                hit_meta: HitMeta {
+                    fast: track.judge[0],
+                    slow: track.judge[6],
+                    max_combo: track.max_chain,
+                    ex_score: if track.ex_score != 0 {
+                        Some(track.ex_score)
+                    } else {
+                        None
+                    },
+                    gauge: track.effective_rate as f32 / 100.0,
+                },
+            })
+            .collect();
+
+        let import = Import {
+            meta: Default::default(),
+            classes: None,
+            scores,
+        };
+
+        helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), &user.profile.api_key, Some(import))?;
+        info!("Successfully imported score(s) for card {}", user.card_id);
+    }
 
     Ok(())
 }
