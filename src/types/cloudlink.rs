@@ -14,13 +14,14 @@ pub struct Score {
 }
 
 impl Score {
-    pub fn from_cloud(score: u32, clear: u8, grade: u8) -> Self {
+    pub fn from_cloud(score: u32, clear: u8, grade: u8, ex_score: u32) -> Self {
         let mut ret = Self::default();
         ret.property[17] = score;
         ret.property[18] = clear as u32;
         ret.property[19] = grade as u32;
 
         ret.property_nabla[18] = score;
+        ret.property_nabla[19] = ex_score;
         ret.property_nabla[20] = clear as u32;
         ret.property_nabla[21] = grade as u32;
 
@@ -64,6 +65,10 @@ impl Score {
         } else {
             &mut self.property[19]
         }
+    }
+
+    pub fn cloud_ex_score_mut(&mut self) -> &mut u32 {
+        &mut self.property_nabla[19]
     }
 
     pub fn to_property(self) -> Vec<u32> {

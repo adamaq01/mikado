@@ -129,6 +129,13 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
             + 1;
         let grade = if grade >= 11 { 10 } else { grade };
 
+        let ex_score = match pb["scoreData"]["optional"]["exScore"].clone() {
+            serde_json::Value::Null => {
+                0
+            }
+            value => value.as_u64().unwrap_or(0),
+        };
+
         let entry = scores.entry(*chart);
         match entry {
             Entry::Occupied(mut entry) => {
@@ -136,9 +143,10 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
                 *base_score.cloud_score_mut() = score as u32;
                 *base_score.cloud_clear_mut() = lamp as u32;
                 *base_score.cloud_grade_mut() = grade as u32;
+                *base_score.cloud_ex_score_mut() = ex_score as u32;
             }
             Entry::Vacant(entry) => {
-                let score = Score::from_cloud(score as u32, lamp as u8, grade as u8);
+                let score = Score::from_cloud(score as u32, lamp as u8, grade as u8, ex_score as u32);
                 entry.insert(score);
             }
         }
