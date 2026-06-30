@@ -6,7 +6,6 @@ use bytes::Bytes;
 use kbinxml::{CompressionType, EncodingType, Node, Options, Value};
 use log::{debug, error, info, warn};
 
-use crate::configuration::Profile;
 use crate::handlers::save::process_save;
 use crate::handlers::scores::process_scores;
 use crate::sys::{
@@ -14,15 +13,9 @@ use crate::sys::{
     property_query_size, property_search, property_set_flag, NodeType,
 };
 use crate::types::game::Property;
+use crate::types::user::User;
 use crate::types::GameProperties;
 use crate::{helpers, CONFIGURATION, TACHI_STATUS_URL};
-
-#[derive(Clone)]
-pub struct User {
-    pub tachi_id: u64,
-    pub card_id: String,
-    pub profile: Profile,
-}
 
 pub static CURRENT_USER: RwLock<Option<User>> = RwLock::new(None);
 pub static GAME_PROPERTIES: OnceLock<GameProperties> = OnceLock::new();
@@ -324,8 +317,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
         }
 
         let tachi_id = profile.as_ref().and_then(|profile| {
-            let key = profile.config.api_key.clone();
-            match get_tachi_user(key) {
+            match get_tachi_user(&profile.api_key) {
                 Ok(user) => {
                     debug!("Tachi API reached, set current user to {user}");
                     Some(user)

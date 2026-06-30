@@ -1,5 +1,5 @@
-use crate::configuration::{Profile, ProfileConfiguration};
-use crate::mikado::{User, CURRENT_USER};
+use crate::mikado::CURRENT_USER;
+use crate::types::user::{Profile, User};
 use crate::sys::{property_node_refer, NodeType};
 use crate::{CARD_PROFILES, CONFIGURATION};
 use anyhow::Result;
@@ -93,14 +93,11 @@ pub fn get_profile(card: impl AsRef<str>) -> Option<Profile> {
             let api_key = CONFIGURATION.tachi.api_key.as_ref()?;
 
             let is_whitelisted = cards_config.whitelist.is_empty()
-                || cards_config.whitelist.contains(&card.as_ref().to_string());
+                || cards_config.whitelist.iter().any(|c| c == card.as_ref());
 
             is_whitelisted.then(|| Profile {
                 name: "default".to_string(),
-                config: ProfileConfiguration {
-                    api_key: api_key.to_string(),
-                    cards: cards_config.whitelist.clone(),
-                },
+                api_key: api_key.clone(),
             })
         })
 }

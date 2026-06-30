@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 pub mod cloudlink;
 pub mod game;
 pub mod tachi;
+pub mod user;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct GameProperties {

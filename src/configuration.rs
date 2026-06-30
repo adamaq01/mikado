@@ -61,12 +61,6 @@ pub struct ProfileConfiguration {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Profile {
-    pub name: String,
-    pub config: ProfileConfiguration,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TachiConfiguration {
     // TODO: it could be useful to move base_url to ProfileConfiguration as well
     //       in case different users want different Tachi instances

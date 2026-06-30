@@ -9,8 +9,8 @@ mod types;
 
 use std::collections::HashMap;
 
-use crate::configuration::Profile;
 use crate::log::Logger;
+use crate::types::user::Profile;
 use crate::mikado::{hook_init, hook_release};
 use ::log::{error, info, warn};
 use configuration::Configuration;
@@ -35,10 +35,19 @@ lazy_static! {
 
         for (profile_name, profile_config) in &CONFIGURATION.profiles {
             for card in &profile_config.cards {
-                if let Some(existing_profile) = cards.get(card) {
+                if let Some(cards_config) = &CONFIGURATION.cards {
+                    if !cards_config.whitelist.is_empty() && cards_config.whitelist.contains(card) {
+                        warn!(
+                            "Card {} is in the default [cards] whitelist and also assigned to profile \"{}\". The profile assignment will be ignored. Remove it from the [cards] whitelist if you want it to use the profile.",
+                            card, profile_name
+                        );
+                        continue;
+                    }
+                }
+                if let Some(existing_profile) = cards.get(card.as_str()) {
                     warn!(
                         "Card {} is already assigned to profile \"{}\" but appears again in profile \"{}\". Ignoring.",
-                        card, &existing_profile.name, &profile_name
+                        card, existing_profile.name, profile_name
                     );
                     continue;
                 }
@@ -46,7 +55,7 @@ lazy_static! {
                     card.to_string(),
                     Profile {
                         name: profile_name.clone(),
-                        config: profile_config.clone(),
+                        api_key: profile_config.api_key.clone(),
                     },
                 );
             }
