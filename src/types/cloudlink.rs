@@ -1,5 +1,4 @@
 use anyhow::Result;
-use crate::{mikado};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Chart {
@@ -7,75 +6,80 @@ pub struct Chart {
     pub difficulty: u8,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Score {
-    property: [u32; 21],
-    property_nabla: [u32; 26],
+#[derive(Debug, Clone, Copy)]
+pub enum Score {
+    ExceedGear([u32; 21]),
+    Nabla([u32; 26]),
 }
 
 impl Score {
-    pub fn from_cloud(score: u32, clear: u8, grade: u8, ex_score: u32) -> Self {
-        let mut ret = Self::default();
-        ret.property[17] = score;
-        ret.property[18] = clear as u32;
-        ret.property[19] = grade as u32;
-
-        ret.property_nabla[18] = score;
-        ret.property_nabla[19] = ex_score;
-        ret.property_nabla[20] = clear as u32;
-        ret.property_nabla[21] = grade as u32;
-
-        ret
+    pub fn from_cloud(is_nabla: bool, score: u32, clear: u8, grade: u8, ex_score: u32) -> Self {
+        if is_nabla {
+            let mut arr = [0u32; 26];
+            arr[18] = score;
+            arr[19] = ex_score;
+            arr[20] = clear as u32;
+            arr[21] = grade as u32;
+            Score::Nabla(arr)
+        } else {
+            let mut arr = [0u32; 21];
+            arr[17] = score;
+            arr[18] = clear as u32;
+            arr[19] = grade as u32;
+            Score::ExceedGear(arr)
+        }
     }
 
-    pub fn from_slice(vec: &[u32]) -> Result<Self> {
-        if vec.len() < 21 {
-            return Err(anyhow::anyhow!("Could not parse score"));
-        }
-        let mut ret = Self::default();
-        ret.property.copy_from_slice(&vec[..21]);
-        if vec.len() >= 26 {
-            ret.property_nabla.copy_from_slice(&vec[..26]);
+    pub fn from_slice(is_nabla: bool, vec: &[u32]) -> Result<Self> {
+        if is_nabla {
+            if vec.len() < 26 {
+                return Err(anyhow::anyhow!("Could not parse score"));
+            }
+            let mut arr = [0u32; 26];
+            arr.copy_from_slice(&vec[..26]);
+            Ok(Score::Nabla(arr))
         } else {
-            // populate only the first 21 elements when full nabla properties aren't present
-            ret.property_nabla[..21].copy_from_slice(&vec[..21]);
+            if vec.len() < 21 {
+                return Err(anyhow::anyhow!("Could not parse score"));
+            }
+            let mut arr = [0u32; 21];
+            arr.copy_from_slice(&vec[..21]);
+            Ok(Score::ExceedGear(arr))
         }
-        Ok(ret)
     }
 
     pub fn cloud_score_mut(&mut self) -> &mut u32 {
-        if mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
-            &mut self.property_nabla[18]
-        } else {
-            &mut self.property[17]
+        match self {
+            Score::ExceedGear(arr) => &mut arr[17],
+            Score::Nabla(arr) => &mut arr[18],
         }
     }
 
     pub fn cloud_clear_mut(&mut self) -> &mut u32 {
-        if mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
-            &mut self.property_nabla[20]
-        } else {
-            &mut self.property[18]
+        match self {
+            Score::ExceedGear(arr) => &mut arr[18],
+            Score::Nabla(arr) => &mut arr[20],
         }
     }
 
     pub fn cloud_grade_mut(&mut self) -> &mut u32 {
-        if mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
-            &mut self.property_nabla[21]
-        } else {
-            &mut self.property[19]
+        match self {
+            Score::ExceedGear(arr) => &mut arr[19],
+            Score::Nabla(arr) => &mut arr[21],
         }
     }
 
-    pub fn cloud_ex_score_mut(&mut self) -> &mut u32 {
-        &mut self.property_nabla[19]
+    pub fn cloud_ex_score_mut(&mut self) -> Option<&mut u32> {
+        match self {
+            Score::ExceedGear(_) => None,
+            Score::Nabla(arr) => Some(&mut arr[19]),
+        }
     }
 
     pub fn to_property(self) -> Vec<u32> {
-        if mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
-            return self.property_nabla.to_vec();
-        } else {
-            return self.property.to_vec();
+        match self {
+            Score::ExceedGear(arr) => arr.to_vec(),
+            Score::Nabla(arr) => arr.to_vec(),
         }
     }
 }

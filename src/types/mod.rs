@@ -87,6 +87,10 @@ impl GameProperties {
         self.nabla
     }
 
+    pub fn method_prefix(&self) -> &'static str {
+        if self.nabla { "sv7" } else { "sv6" }
+    }
+
     pub fn has_maxxive_support(&self) -> bool {
         self.maxxive_support
     }

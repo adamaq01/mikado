@@ -1,7 +1,7 @@
 mod ext;
 
 use crate::types::cloudlink::{Chart, Score};
-use crate::types::tachi::{TachiDifficulty, TachiLamp, TachiLampNabla};
+use crate::types::tachi::{TachiDifficulty, TachiLamp};
 use crate::types::user::User;
 use crate::{helpers, mikado, TACHI_PBS_URL};
 use anyhow::Result;
@@ -60,6 +60,9 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
         })
         .collect::<Result<HashMap<&str, Chart>>>()?;
 
+    let is_nabla = mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default();
+    let has_maxxive = mikado::GAME_PROPERTIES.get().map(|p| p.has_maxxive_support()).unwrap_or_default();
+
     let mut scores = HashMap::with_capacity(music.children().len() + pbs.len());
     for pb in music.children() {
         let score = pb
@@ -76,7 +79,7 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
                 song_id,
                 difficulty,
             };
-            let score = Score::from_slice(value)?;
+            let score = Score::from_slice(is_nabla, value)?;
             scores.insert(chart, score);
         }
     }
@@ -92,35 +95,13 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
             "Could not parse PB score from Tachi PBs API"
         ))?;
 
-        let lamp: u32;
-        if mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
-            lamp = match serde_json::from_value::<TachiLampNabla>(pb["scoreData"]["lamp"].clone()) {
-                Ok(TachiLampNabla::MaxxiveClear)
-                    if !mikado::GAME_PROPERTIES
-                        .get()
-                        .map(|p| p.has_maxxive_support())
-                        .unwrap_or_default() =>
-                {
-                    TachiLampNabla::ExcessiveClear.into()
-                }
-                Ok(lamp) => lamp.into(),
-                Err(_) => 0,
-            };
-        } else {
-            lamp = match serde_json::from_value::<TachiLamp>(pb["scoreData"]["lamp"].clone()) {
-                Ok(TachiLamp::MaxxiveClear)
-                    if !mikado::GAME_PROPERTIES
-                        .get()
-                        .map(|p| p.has_maxxive_support())
-                        .unwrap_or_default() =>
-                {
-                    TachiLamp::ExcessiveClear.into()
-                }
-                Ok(lamp) => lamp.into(),
-                Err(_) => 0,
-            };
-        }
-        
+        let lamp = match serde_json::from_value::<TachiLamp>(pb["scoreData"]["lamp"].clone()) {
+            Ok(TachiLamp::MaxxiveClear) if !has_maxxive => TachiLamp::ExcessiveClear,
+            Ok(lamp) => lamp,
+            Err(_) => TachiLamp::Failed,
+        };
+        let lamp = if is_nabla { lamp.to_nabla_index() } else { lamp.to_eg_index() };
+
         let grade = pb["scoreData"]["enumIndexes"]["grade"]
             .as_u64()
             .ok_or(anyhow::anyhow!(
@@ -129,24 +110,21 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
             + 1;
         let grade = if grade >= 11 { 10 } else { grade };
 
-        let ex_score = match pb["scoreData"]["optional"]["exScore"].clone() {
-            serde_json::Value::Null => {
-                0
-            }
-            value => value.as_u64().unwrap_or(0),
-        };
+        let ex_score = pb["scoreData"]["optional"]["exScore"].as_u64().unwrap_or(0) as u32;
 
         let entry = scores.entry(*chart);
         match entry {
             Entry::Occupied(mut entry) => {
                 let base_score = entry.get_mut();
                 *base_score.cloud_score_mut() = score as u32;
-                *base_score.cloud_clear_mut() = lamp as u32;
+                *base_score.cloud_clear_mut() = lamp;
                 *base_score.cloud_grade_mut() = grade as u32;
-                *base_score.cloud_ex_score_mut() = ex_score as u32;
+                if let Some(ex) = base_score.cloud_ex_score_mut() {
+                    *ex = ex_score;
+                }
             }
             Entry::Vacant(entry) => {
-                let score = Score::from_cloud(score as u32, lamp as u8, grade as u8, ex_score as u32);
+                let score = Score::from_cloud(is_nabla, score as u32, lamp as u8, grade as u8, ex_score);
                 entry.insert(score);
             }
         }

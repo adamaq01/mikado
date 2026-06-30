@@ -353,32 +353,20 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
         return call_original!(property);
     }
 
-    // Super ugly solution to allow both EG and Nabla support
-    let prefix;
-
-    if GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
-        prefix = "sv7";
-    } else {
-        prefix = "sv6";
-    }
-
-    let load_m_method = format!("{prefix}_load_m");
-    let common_method = format!("{prefix}_common");
-    let load_method = format!("{prefix}_load");
-    let save_m_method = format!("{prefix}_save_m");
-    let save_method = format!("{prefix}_save");
+    let prefix = GAME_PROPERTIES.get().map(|p| p.method_prefix()).unwrap_or("sv6");
+    let method = method.strip_prefix(prefix).and_then(|s| s.strip_prefix('_')).unwrap_or("");
 
     if CONFIGURATION.general.inject_cloud_pbs {
-        if method == load_m_method {
+        if method == "load_m" {
             LOAD_M.store(true, Ordering::Relaxed);
-        } else if method == common_method {
+        } else if method == "common" {
             COMMON.store(true, Ordering::Relaxed);
-        } else if method == load_method {
+        } else if method == "load" {
             LOAD.store(true, Ordering::Relaxed);
         }
     }
 
-    if method != save_m_method && (!CONFIGURATION.general.export_class || method != save_method) {
+    if method != "save_m" && (!CONFIGURATION.general.export_class || method != "save") {
         return call_original!(property);
     }
 
@@ -409,24 +397,20 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
     };
 
     debug!("Processing property: {property_str}");
-    if let Err(err) = match method.as_str() {
-        _ if method.as_str() == save_m_method => serde_json::from_str::<Property>(property_str)
+    if let Err(err) = match method {
+        "save_m" => serde_json::from_str::<Property>(property_str)
             .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
             .and_then(|prop| {
                 process_scores(
-                    prop.call
-                        .game
-                        .left()
+                    prop.call.game.left()
                         .ok_or(anyhow::anyhow!("Could not process scores property"))?,
                 )
             }),
-        _ if method.as_str() == save_method => serde_json::from_str::<Property>(property_str)
+        "save" => serde_json::from_str::<Property>(property_str)
             .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
             .and_then(|prop| {
                 process_save(
-                    prop.call
-                        .game
-                        .right()
+                    prop.call.game.right()
                         .ok_or(anyhow::anyhow!("Could not process save property"))?,
                 )
             }),
