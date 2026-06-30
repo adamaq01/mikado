@@ -2,6 +2,7 @@ mod ext;
 
 use crate::types::cloudlink::{Chart, Score};
 use crate::types::tachi::{TachiDifficulty, TachiLamp};
+use crate::types::user::User;
 use crate::{helpers, mikado, TACHI_PBS_URL};
 use anyhow::Result;
 use dynfmt::Format;
@@ -22,10 +23,8 @@ fn build_response_base(scores: Vec<Node>) -> Node {
 }
 
 // TODO: Refactor this whole mess
-pub fn process_pbs(user: &str, music: &Node) -> Result<Node> {
-    let url = dynfmt::SimpleCurlyFormat.format(TACHI_PBS_URL.as_str(), [user])?;
-
-    let user = helpers::get_current_user().ok_or(anyhow::anyhow!("No user during PB processing"))?;
+pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
+    let url = dynfmt::SimpleCurlyFormat.format(TACHI_PBS_URL.as_str(), [user.tachi_id])?;
 
     let response: serde_json::Value = helpers::request_tachi("GET", url, &user.profile.api_key, None::<()>)?;
     let body = response["body"].as_object().ok_or(anyhow::anyhow!(

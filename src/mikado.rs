@@ -201,7 +201,7 @@ pub unsafe fn property_mem_read_hook_wrapped(
         if let Some(user) = helpers::get_current_user() {
             Some((|| {
                 let response =
-                    crate::cloudlink::process_pbs(user.tachi_id.to_string().as_str(), music)?;
+                    crate::cloudlink::process_pbs(&user, music)?;
                 let response = build_response(&original_signature, response, encoding)?;
                 LOAD_M.store(false, Ordering::Relaxed);
 

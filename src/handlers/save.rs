@@ -24,7 +24,7 @@ pub fn process_save(save: GameSave) -> Result<()> {
     };
 
     helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), &user.profile.api_key, Some(import))?;
-    info!("Successfully updated class for card {0}", user.card_id);
+    info!("Successfully updated class for card {}", user.card_id);
 
     Ok(())
 }
