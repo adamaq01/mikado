@@ -26,3 +26,8 @@ import = '/ir/direct-manual/import'
 pbs = '/api/v1/users/{}/games/sdvx/Single/pbs/all'
 # Your Tachi API key
 api_key = 'your-key-here'
+
+# Example of a profile, used to associate specific cards with another API key.
+# [profiles.'profile-name']
+# cards = ['E000000002', 'E000000003']
+# api_key = 'another-key-here'

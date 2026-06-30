@@ -7,9 +7,12 @@ mod mikado;
 mod sys;
 mod types;
 
+use std::collections::HashMap;
+
 use crate::log::Logger;
+use crate::types::user::Profile;
 use crate::mikado::{hook_init, hook_release};
-use ::log::{error, info};
+use ::log::{error, info, warn};
 use configuration::Configuration;
 use lazy_static::lazy_static;
 use url::Url;
@@ -26,6 +29,39 @@ lazy_static! {
         }
 
         result.unwrap()
+    };
+    pub static ref CARD_PROFILES: HashMap<String, Profile> = {
+        let mut cards: HashMap<String, Profile> = HashMap::new();
+
+        for (profile_name, profile_config) in &CONFIGURATION.profiles {
+            for card in &profile_config.cards {
+                if let Some(cards_config) = &CONFIGURATION.cards {
+                    if !cards_config.whitelist.is_empty() && cards_config.whitelist.contains(card) {
+                        warn!(
+                            "Card {} is in the default [cards] whitelist and also assigned to profile \"{}\". The profile assignment will be ignored. Remove it from the [cards] whitelist if you want it to use the profile.",
+                            card, profile_name
+                        );
+                        continue;
+                    }
+                }
+                if let Some(existing_profile) = cards.get(card.as_str()) {
+                    warn!(
+                        "Card {} is already assigned to profile \"{}\" but appears again in profile \"{}\". Ignoring.",
+                        card, existing_profile.name, profile_name
+                    );
+                    continue;
+                }
+                cards.insert(
+                    card.to_string(),
+                    Profile {
+                        name: profile_name.clone(),
+                        api_key: profile_config.api_key.clone(),
+                    },
+                );
+            }
+        }
+
+        cards
     };
     pub static ref TACHI_STATUS_URL: String = {
         let result = Url::parse(&CONFIGURATION.tachi.base_url)
