@@ -46,6 +46,12 @@ pub fn hook_init(ea3_node: *const ()) -> Result<()> {
         return Ok(());
     }
 
+    if GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
+        debug!("Nabla detected, using Nabla method prefix 'sv7'");
+    } else {
+        debug!("EG detected, using EG method prefix 'sv6'");
+    }
+
     // Initializing function detours
     crochet::enable!(property_destroy_hook)
         .map_err(|err| anyhow::anyhow!("Could not enable function detour: {:#}", err))?;
@@ -347,17 +353,20 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
         return call_original!(property);
     }
 
+    let prefix = GAME_PROPERTIES.get().map(|p| p.method_prefix()).unwrap_or("sv6");
+    let method = method.strip_prefix(prefix).and_then(|s| s.strip_prefix('_')).unwrap_or("");
+
     if CONFIGURATION.general.inject_cloud_pbs {
-        if method == "sv6_load_m" {
+        if method == "load_m" {
             LOAD_M.store(true, Ordering::Relaxed);
-        } else if method == "sv6_common" {
+        } else if method == "common" {
             COMMON.store(true, Ordering::Relaxed);
-        } else if method == "sv6_load" {
+        } else if method == "load" {
             LOAD.store(true, Ordering::Relaxed);
         }
     }
 
-    if method != "sv6_save_m" && (!CONFIGURATION.general.export_class || method != "sv6_save") {
+    if method != "save_m" && (!CONFIGURATION.general.export_class || method != "save") {
         return call_original!(property);
     }
 
@@ -388,24 +397,20 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
     };
 
     debug!("Processing property: {property_str}");
-    if let Err(err) = match method.as_str() {
-        "sv6_save_m" => serde_json::from_str::<Property>(property_str)
+    if let Err(err) = match method {
+        "save_m" => serde_json::from_str::<Property>(property_str)
             .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
             .and_then(|prop| {
                 process_scores(
-                    prop.call
-                        .game
-                        .left()
+                    prop.call.game.left()
                         .ok_or(anyhow::anyhow!("Could not process scores property"))?,
                 )
             }),
-        "sv6_save" => serde_json::from_str::<Property>(property_str)
+        "save" => serde_json::from_str::<Property>(property_str)
             .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
             .and_then(|prop| {
                 process_save(
-                    prop.call
-                        .game
-                        .right()
+                    prop.call.game.right()
                         .ok_or(anyhow::anyhow!("Could not process save property"))?,
                 )
             }),

@@ -1,6 +1,6 @@
 use crate::types::game::GameScores;
 use crate::types::tachi::{HitMeta, Import, ImportScore, Judgements, TachiDifficulty, TachiLamp};
-use crate::{helpers, TACHI_IMPORT_URL};
+use crate::{helpers, mikado, TACHI_IMPORT_URL};
 use anyhow::Result;
 use either::Either;
 use log::info;
@@ -21,6 +21,8 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
         Either::Right(tracks) => tracks,
     };
 
+    let is_nabla = mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default();
+
     let time_achieved = std::time::UNIX_EPOCH
         .elapsed()
         .map(|duration| duration.as_millis())
@@ -30,7 +32,11 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
         .into_iter()
         .map(|track| ImportScore {
             score: track.score,
-            lamp: TachiLamp::from(track.clear_type),
+            lamp: if is_nabla {
+                TachiLamp::from_nabla(track.clear_type)
+            } else {
+                TachiLamp::from_eg(track.clear_type)
+            },
             match_type: "sdvxInGameID".to_string(),
             identifier: track.music_id.to_string(),
             difficulty: TachiDifficulty::from(track.music_type),

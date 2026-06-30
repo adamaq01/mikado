@@ -77,22 +77,66 @@ pub struct ImportScore {
     pub hit_meta: HitMeta,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, FromPrimitive, IntoPrimitive, Serialize, Deserialize)]
-#[repr(u32)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum TachiLamp {
-    #[num_enum(default)]
     #[serde(rename = "FAILED")]
-    Failed = 1,
+    Failed,
     #[serde(rename = "CLEAR")]
-    Clear = 2,
+    Clear,
     #[serde(rename = "EXCESSIVE CLEAR")]
-    ExcessiveClear = 3,
+    ExcessiveClear,
     #[serde(rename = "ULTIMATE CHAIN")]
-    UltimateChain = 4,
+    UltimateChain,
     #[serde(rename = "PERFECT ULTIMATE CHAIN")]
-    PerfectUltimateChain = 5,
+    PerfectUltimateChain,
     #[serde(rename = "MAXXIVE CLEAR")]
-    MaxxiveClear = 6,
+    MaxxiveClear,
+}
+
+impl TachiLamp {
+    pub fn from_eg(clear_type: u32) -> Self {
+        match clear_type {
+            2 => TachiLamp::Clear,
+            3 => TachiLamp::ExcessiveClear,
+            4 => TachiLamp::UltimateChain,
+            5 => TachiLamp::PerfectUltimateChain,
+            6 => TachiLamp::MaxxiveClear,
+            _ => TachiLamp::Failed,
+        }
+    }
+
+    pub fn from_nabla(clear_type: u32) -> Self {
+        match clear_type {
+            2 => TachiLamp::Clear,
+            3 => TachiLamp::ExcessiveClear,
+            4 => TachiLamp::MaxxiveClear,
+            5 => TachiLamp::UltimateChain,
+            6 => TachiLamp::PerfectUltimateChain,
+            _ => TachiLamp::Failed,
+        }
+    }
+
+    pub fn to_eg_index(&self) -> u32 {
+        match self {
+            TachiLamp::Failed => 1,
+            TachiLamp::Clear => 2,
+            TachiLamp::ExcessiveClear => 3,
+            TachiLamp::UltimateChain => 4,
+            TachiLamp::PerfectUltimateChain => 5,
+            TachiLamp::MaxxiveClear => 6,
+        }
+    }
+
+    pub fn to_nabla_index(&self) -> u32 {
+        match self {
+            TachiLamp::Failed => 1,
+            TachiLamp::Clear => 2,
+            TachiLamp::ExcessiveClear => 3,
+            TachiLamp::MaxxiveClear => 4,
+            TachiLamp::UltimateChain => 5,
+            TachiLamp::PerfectUltimateChain => 6,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, FromPrimitive, IntoPrimitive, Serialize, Deserialize)]
