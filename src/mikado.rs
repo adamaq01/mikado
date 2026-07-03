@@ -46,12 +46,6 @@ pub fn hook_init(ea3_node: *const ()) -> Result<()> {
         return Ok(());
     }
 
-    if GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default() {
-        debug!("Nabla detected, using Nabla method prefix 'sv7'");
-    } else {
-        debug!("EG detected, using EG method prefix 'sv6'");
-    }
-
     // Initializing function detours
     crochet::enable!(property_destroy_hook)
         .map_err(|err| anyhow::anyhow!("Could not enable function detour: {:#}", err))?;
@@ -353,7 +347,7 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
         return call_original!(property);
     }
 
-    let prefix = GAME_PROPERTIES.get().map(|p| p.method_prefix()).unwrap_or("sv6");
+    let prefix = GAME_PROPERTIES.get().map(|p| p.version().method_prefix()).unwrap_or("sv6");
     let method = method.strip_prefix(prefix).and_then(|s| s.strip_prefix('_')).unwrap_or("");
 
     if CONFIGURATION.general.inject_cloud_pbs {

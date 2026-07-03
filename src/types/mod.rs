@@ -6,6 +6,36 @@ pub mod game;
 pub mod tachi;
 pub mod user;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum GameVersion {
+    #[default]
+    ExceedGear,
+    Nabla,
+}
+
+impl GameVersion {
+    pub fn display_name(self) -> &'static str {
+        match self {
+            GameVersion::ExceedGear => "Exceed Gear",
+            GameVersion::Nabla => "Nabla",
+        }
+    }
+    
+    pub fn tachi_id(self) -> &'static str {
+        match self {
+            GameVersion::ExceedGear => "exceed",
+            GameVersion::Nabla => "nabla",
+        }
+    }
+
+    pub fn method_prefix(self) -> &'static str {
+        match self {
+            GameVersion::ExceedGear => "sv6",
+            GameVersion::Nabla => "sv7",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct GameProperties {
     model: Box<str>,
@@ -17,7 +47,7 @@ pub struct GameProperties {
     valkyrie: bool,
     maxxive_support: bool,
     ultimate_support: bool,
-    nabla: bool,
+    version: GameVersion,
 }
 
 pub enum NotSupportedReason<'a> {
@@ -44,7 +74,7 @@ impl GameProperties {
         let valkyrie = spec.as_ref() == "G" || spec.as_ref() == "H";
         let maxxive_support = ext >= 2025042200;
         let ultimate_support = ext >= 2025062400; // Actually it is 2025062401 but let's be more lenient
-        let nabla = ext >= 2025122400;
+        let version = if ext >= 2025122400 { GameVersion::Nabla } else { GameVersion::ExceedGear };
 
         Some(GameProperties {
             model,
@@ -55,7 +85,7 @@ impl GameProperties {
             valkyrie,
             maxxive_support,
             ultimate_support,
-            nabla,
+            version,
         })
     }
 
@@ -83,12 +113,8 @@ impl GameProperties {
         self.valkyrie
     }
 
-    pub fn is_nabla(&self) -> bool {
-        self.nabla
-    }
-
-    pub fn method_prefix(&self) -> &'static str {
-        if self.nabla { "sv7" } else { "sv6" }
+    pub fn version(&self) -> GameVersion {
+        self.version
     }
 
     pub fn has_maxxive_support(&self) -> bool {
@@ -116,14 +142,11 @@ impl GameProperties {
 impl Display for GameProperties {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "{}:{}:{}:{}:{}",
-            self.model, self.dest, self.spec, self.revision, self.ext
+            "{}:{}:{}:{}:{} ({})",
+            self.model, self.dest, self.spec, self.revision, self.ext, self.version.display_name()
         ))?;
         if self.valkyrie {
             f.write_str(" (Valkyrie)")?;
-        }
-        if self.nabla {
-            f.write_str(" (Nabla detected)")?;
         }
         if self.maxxive_support {
             f.write_str(" (Maxxive support)")?;

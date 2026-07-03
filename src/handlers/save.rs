@@ -1,6 +1,6 @@
 use crate::types::game::GameSave;
-use crate::types::tachi::{Import, ImportClasses, SkillLevel};
-use crate::{helpers, TACHI_IMPORT_URL};
+use crate::types::tachi::{Import, ImportClasses, ImportMeta, SkillLevel};
+use crate::{helpers, mikado, TACHI_IMPORT_URL};
 use anyhow::Result;
 use log::info;
 
@@ -15,8 +15,10 @@ pub fn process_save(save: GameSave) -> Result<()> {
         return Ok(());
     };
 
+    let version = mikado::GAME_PROPERTIES.get().map(|p| p.version()).unwrap_or_default();
+
     let import = Import {
-        meta: Default::default(),
+        meta: ImportMeta::new(version),
         classes: Some(ImportClasses {
             dan: SkillLevel::from(save.skill_level),
         }),

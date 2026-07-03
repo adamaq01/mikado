@@ -1,7 +1,8 @@
 use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};
+use super::GameVersion;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Import {
     pub meta: ImportMeta,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -12,17 +13,16 @@ pub struct Import {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportMeta {
     pub game: String,
-    #[serde(rename = "playtype")]
-    pub play_type: String,
     pub service: String,
+    pub version: String,
 }
 
-impl Default for ImportMeta {
-    fn default() -> Self {
+impl ImportMeta {
+    pub fn new(version: GameVersion) -> Self {
         Self {
             game: "sdvx".to_string(),
-            play_type: "Single".to_string(),
             service: "Mikado".to_string(),
+            version: version.tachi_id().to_string(),
         }
     }
 }
@@ -32,7 +32,7 @@ pub struct ImportClasses {
     pub dan: SkillLevel,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, FromPrimitive, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, FromPrimitive, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum SkillLevel {
     #[num_enum(default)]
@@ -77,7 +77,7 @@ pub struct ImportScore {
     pub hit_meta: HitMeta,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub enum TachiLamp {
     #[serde(rename = "FAILED")]
     Failed,
@@ -94,52 +94,50 @@ pub enum TachiLamp {
 }
 
 impl TachiLamp {
-    pub fn from_eg(clear_type: u32) -> Self {
-        match clear_type {
-            2 => TachiLamp::Clear,
-            3 => TachiLamp::ExcessiveClear,
-            4 => TachiLamp::UltimateChain,
-            5 => TachiLamp::PerfectUltimateChain,
-            6 => TachiLamp::MaxxiveClear,
-            _ => TachiLamp::Failed,
+    pub fn from_clear_type(version: GameVersion, clear_type: u32) -> Self {
+        match version {
+            GameVersion::ExceedGear => match clear_type {
+                2 => TachiLamp::Clear,
+                3 => TachiLamp::ExcessiveClear,
+                4 => TachiLamp::UltimateChain,
+                5 => TachiLamp::PerfectUltimateChain,
+                6 => TachiLamp::MaxxiveClear,
+                _ => TachiLamp::Failed,
+            },
+            GameVersion::Nabla => match clear_type {
+                2 => TachiLamp::Clear,
+                3 => TachiLamp::ExcessiveClear,
+                4 => TachiLamp::MaxxiveClear,
+                5 => TachiLamp::UltimateChain,
+                6 => TachiLamp::PerfectUltimateChain,
+                _ => TachiLamp::Failed,
+            },
         }
     }
 
-    pub fn from_nabla(clear_type: u32) -> Self {
-        match clear_type {
-            2 => TachiLamp::Clear,
-            3 => TachiLamp::ExcessiveClear,
-            4 => TachiLamp::MaxxiveClear,
-            5 => TachiLamp::UltimateChain,
-            6 => TachiLamp::PerfectUltimateChain,
-            _ => TachiLamp::Failed,
-        }
-    }
-
-    pub fn to_eg_index(&self) -> u32 {
-        match self {
-            TachiLamp::Failed => 1,
-            TachiLamp::Clear => 2,
-            TachiLamp::ExcessiveClear => 3,
-            TachiLamp::UltimateChain => 4,
-            TachiLamp::PerfectUltimateChain => 5,
-            TachiLamp::MaxxiveClear => 6,
-        }
-    }
-
-    pub fn to_nabla_index(&self) -> u32 {
-        match self {
-            TachiLamp::Failed => 1,
-            TachiLamp::Clear => 2,
-            TachiLamp::ExcessiveClear => 3,
-            TachiLamp::MaxxiveClear => 4,
-            TachiLamp::UltimateChain => 5,
-            TachiLamp::PerfectUltimateChain => 6,
+    pub fn to_index(self, version: GameVersion) -> u32 {
+        match version {
+            GameVersion::ExceedGear => match self {
+                TachiLamp::Failed => 1,
+                TachiLamp::Clear => 2,
+                TachiLamp::ExcessiveClear => 3,
+                TachiLamp::UltimateChain => 4,
+                TachiLamp::PerfectUltimateChain => 5,
+                TachiLamp::MaxxiveClear => 6,
+            },
+            GameVersion::Nabla => match self {
+                TachiLamp::Failed => 1,
+                TachiLamp::Clear => 2,
+                TachiLamp::ExcessiveClear => 3,
+                TachiLamp::MaxxiveClear => 4,
+                TachiLamp::UltimateChain => 5,
+                TachiLamp::PerfectUltimateChain => 6,
+            },
         }
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, FromPrimitive, IntoPrimitive, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, FromPrimitive, IntoPrimitive, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum TachiDifficulty {
     #[num_enum(default)]

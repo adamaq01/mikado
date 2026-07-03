@@ -60,7 +60,7 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
         })
         .collect::<Result<HashMap<&str, Chart>>>()?;
 
-    let is_nabla = mikado::GAME_PROPERTIES.get().map(|p| p.is_nabla()).unwrap_or_default();
+    let version = mikado::GAME_PROPERTIES.get().map(|p| p.version()).unwrap_or_default();
     let has_maxxive = mikado::GAME_PROPERTIES.get().map(|p| p.has_maxxive_support()).unwrap_or_default();
 
     let mut scores = HashMap::with_capacity(music.children().len() + pbs.len());
@@ -79,7 +79,7 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
                 song_id,
                 difficulty,
             };
-            let score = Score::from_slice(is_nabla, value)?;
+            let score = Score::from_slice(version, value)?;
             scores.insert(chart, score);
         }
     }
@@ -99,8 +99,7 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
             Ok(TachiLamp::MaxxiveClear) if !has_maxxive => TachiLamp::ExcessiveClear,
             Ok(lamp) => lamp,
             Err(_) => TachiLamp::Failed,
-        };
-        let lamp = if is_nabla { lamp.to_nabla_index() } else { lamp.to_eg_index() };
+        }.to_index(version);
 
         let grade = pb["scoreData"]["enumIndexes"]["grade"]
             .as_u64()
@@ -124,7 +123,7 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
                 }
             }
             Entry::Vacant(entry) => {
-                let score = Score::from_cloud(is_nabla, score as u32, lamp as u8, grade as u8, ex_score);
+                let score = Score::from_cloud(version, score as u32, lamp as u8, grade as u8, ex_score);
                 entry.insert(score);
             }
         }

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use super::GameVersion;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Chart {
@@ -13,38 +14,44 @@ pub enum Score {
 }
 
 impl Score {
-    pub fn from_cloud(is_nabla: bool, score: u32, clear: u8, grade: u8, ex_score: u32) -> Self {
-        if is_nabla {
-            let mut arr = [0u32; 26];
-            arr[18] = score;
-            arr[19] = ex_score;
-            arr[20] = clear as u32;
-            arr[21] = grade as u32;
-            Score::Nabla(arr)
-        } else {
-            let mut arr = [0u32; 21];
-            arr[17] = score;
-            arr[18] = clear as u32;
-            arr[19] = grade as u32;
-            Score::ExceedGear(arr)
+    pub fn from_cloud(version: GameVersion, score: u32, clear: u8, grade: u8, ex_score: u32) -> Self {
+        match version {
+            GameVersion::Nabla => {
+                let mut arr = [0u32; 26];
+                arr[18] = score;
+                arr[19] = ex_score;
+                arr[20] = clear as u32;
+                arr[21] = grade as u32;
+                Score::Nabla(arr)
+            }
+            GameVersion::ExceedGear => {
+                let mut arr = [0u32; 21];
+                arr[17] = score;
+                arr[18] = clear as u32;
+                arr[19] = grade as u32;
+                Score::ExceedGear(arr)
+            }
         }
     }
 
-    pub fn from_slice(is_nabla: bool, vec: &[u32]) -> Result<Self> {
-        if is_nabla {
-            if vec.len() < 26 {
-                return Err(anyhow::anyhow!("Could not parse score"));
+    pub fn from_slice(version: GameVersion, vec: &[u32]) -> Result<Self> {
+        match version {
+            GameVersion::Nabla => {
+                if vec.len() < 26 {
+                    return Err(anyhow::anyhow!("Could not parse score"));
+                }
+                let mut arr = [0u32; 26];
+                arr.copy_from_slice(&vec[..26]);
+                Ok(Score::Nabla(arr))
             }
-            let mut arr = [0u32; 26];
-            arr.copy_from_slice(&vec[..26]);
-            Ok(Score::Nabla(arr))
-        } else {
-            if vec.len() < 21 {
-                return Err(anyhow::anyhow!("Could not parse score"));
+            GameVersion::ExceedGear => {
+                if vec.len() < 21 {
+                    return Err(anyhow::anyhow!("Could not parse score"));
+                }
+                let mut arr = [0u32; 21];
+                arr.copy_from_slice(&vec[..21]);
+                Ok(Score::ExceedGear(arr))
             }
-            let mut arr = [0u32; 21];
-            arr.copy_from_slice(&vec[..21]);
-            Ok(Score::ExceedGear(arr))
         }
     }
 
