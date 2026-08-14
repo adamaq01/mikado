@@ -1,6 +1,6 @@
 use crate::types::game::GameSave;
 use crate::types::tachi::{Import, ImportClasses, ImportMeta, SkillLevel};
-use crate::{helpers, mikado, TACHI_IMPORT_URL};
+use crate::{TACHI_IMPORT_URL, helpers, mikado};
 use anyhow::Result;
 use log::info;
 
@@ -15,7 +15,10 @@ pub fn process_save(save: GameSave) -> Result<()> {
         return Ok(());
     };
 
-    let version = mikado::GAME_PROPERTIES.get().map(|p| p.version()).unwrap_or_default();
+    let version = mikado::GAME_PROPERTIES
+        .get()
+        .map(|p| p.version())
+        .unwrap_or_default();
 
     let import = Import {
         meta: ImportMeta::new(version),
@@ -25,7 +28,12 @@ pub fn process_save(save: GameSave) -> Result<()> {
         scores: vec![],
     };
 
-    helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), &user.profile.api_key, Some(import))?;
+    helpers::call_tachi(
+        "POST",
+        TACHI_IMPORT_URL.as_str(),
+        &user.profile.api_key,
+        Some(import),
+    )?;
     info!("Successfully updated class for card {}", user.card_id);
 
     Ok(())

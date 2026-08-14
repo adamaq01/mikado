@@ -20,7 +20,7 @@ impl GameVersion {
             GameVersion::Nabla => "Nabla",
         }
     }
-    
+
     pub fn tachi_id(self) -> &'static str {
         match self {
             GameVersion::ExceedGear => "exceed",
@@ -74,7 +74,11 @@ impl GameProperties {
         let valkyrie = spec.as_ref() == "G" || spec.as_ref() == "H";
         let maxxive_support = ext >= 2025042200;
         let ultimate_support = ext >= 2025062400; // Actually it is 2025062401 but let's be more lenient
-        let version = if ext >= 2025122400 { GameVersion::Nabla } else { GameVersion::ExceedGear };
+        let version = if ext >= 2025122400 {
+            GameVersion::Nabla
+        } else {
+            GameVersion::ExceedGear
+        };
 
         Some(GameProperties {
             model,
@@ -143,7 +147,12 @@ impl Display for GameProperties {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "{}:{}:{}:{}:{} ({})",
-            self.model, self.dest, self.spec, self.revision, self.ext, self.version.display_name()
+            self.model,
+            self.dest,
+            self.spec,
+            self.revision,
+            self.ext,
+            self.version.display_name()
         ))?;
         if self.valkyrie {
             f.write_str(" (Valkyrie)")?;

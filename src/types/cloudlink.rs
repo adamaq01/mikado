@@ -1,5 +1,5 @@
-use anyhow::Result;
 use super::GameVersion;
+use anyhow::Result;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Chart {
@@ -14,7 +14,13 @@ pub enum Score {
 }
 
 impl Score {
-    pub fn from_cloud(version: GameVersion, score: u32, clear: u8, grade: u8, ex_score: u32) -> Self {
+    pub fn from_cloud(
+        version: GameVersion,
+        score: u32,
+        clear: u8,
+        grade: u8,
+        ex_score: u32,
+    ) -> Self {
         match version {
             GameVersion::Nabla => {
                 let mut arr = [0u32; 26];

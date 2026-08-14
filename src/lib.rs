@@ -10,130 +10,98 @@ mod types;
 use std::collections::HashMap;
 
 use crate::log::Logger;
-use crate::types::user::Profile;
 use crate::mikado::{hook_init, hook_release};
+use crate::types::user::Profile;
 use ::log::{error, info, warn};
 use configuration::Configuration;
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
 use url::Url;
-use winapi::shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID, TRUE};
-use winapi::um::consoleapi::AllocConsole;
-use winapi::um::winnt::{DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH};
+use windows::Win32::Foundation::{HINSTANCE, TRUE};
+use windows::Win32::System::Console::AllocConsole;
+use windows::Win32::System::SystemServices::{DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH};
+use windows::core::BOOL;
 
-lazy_static! {
-    pub static ref CONFIGURATION: Configuration = {
-        let result = Configuration::load();
-        if let Err(err) = result {
-            error!("{err:#}");
-            std::process::exit(1);
-        }
+pub static CONFIGURATION: LazyLock<Configuration> = LazyLock::new(|| {
+    let result = Configuration::load();
+    if let Err(err) = result {
+        error!("{err:#}");
+        std::process::exit(1);
+    }
 
-        result.unwrap()
-    };
-    pub static ref CARD_PROFILES: HashMap<String, Profile> = {
-        let mut cards: HashMap<String, Profile> = HashMap::new();
+    result.unwrap()
+});
 
-        for (profile_name, profile_config) in &CONFIGURATION.profiles {
-            for card in &profile_config.cards {
-                if let Some(cards_config) = &CONFIGURATION.cards {
-                    if !cards_config.whitelist.is_empty() && cards_config.whitelist.contains(card) {
-                        warn!(
-                            "Card {} is in the default [cards] whitelist and also assigned to profile \"{}\". The profile assignment will be ignored. Remove it from the [cards] whitelist if you want it to use the profile.",
-                            card, profile_name
-                        );
-                        continue;
-                    }
-                }
-                if let Some(existing_profile) = cards.get(card.as_str()) {
-                    warn!(
-                        "Card {} is already assigned to profile \"{}\" but appears again in profile \"{}\". Ignoring.",
-                        card, existing_profile.name, profile_name
-                    );
-                    continue;
-                }
-                cards.insert(
-                    card.to_string(),
-                    Profile {
-                        name: profile_name.clone(),
-                        api_key: profile_config.api_key.clone(),
-                    },
+pub static CARD_PROFILES: LazyLock<HashMap<String, Profile>> = LazyLock::new(|| {
+    let mut cards: HashMap<String, Profile> = HashMap::new();
+
+    for (profile_name, profile_config) in &CONFIGURATION.profiles {
+        for card in &profile_config.cards {
+            if let Some(cards_config) = &CONFIGURATION.cards
+                && !cards_config.whitelist.is_empty()
+                && cards_config.whitelist.contains(card)
+            {
+                warn!(
+                    "Card {} is in the default [cards] whitelist and also assigned to profile \"{}\". The profile assignment will be ignored. Remove it from the [cards] whitelist if you want it to use the profile.",
+                    card, profile_name
                 );
+                continue;
             }
+            if let Some(existing_profile) = cards.get(card.as_str()) {
+                warn!(
+                    "Card {} is already assigned to profile \"{}\" but appears again in profile \"{}\". Ignoring.",
+                    card, existing_profile.name, profile_name
+                );
+                continue;
+            }
+            cards.insert(
+                card.to_string(),
+                Profile {
+                    name: profile_name.clone(),
+                    api_key: profile_config.api_key.clone(),
+                },
+            );
         }
+    }
 
-        cards
-    };
-    pub static ref TACHI_STATUS_URL: String = {
-        let result = Url::parse(&CONFIGURATION.tachi.base_url)
-            .and_then(|url| url.join(&CONFIGURATION.tachi.status));
-        if let Err(err) = result {
-            error!("Could not parse Tachi status URL: {err:#}");
-            std::process::exit(1);
-        }
+    cards
+});
 
-        result.unwrap().to_string()
-    };
-    pub static ref TACHI_IMPORT_URL: String = {
-        let result = Url::parse(&CONFIGURATION.tachi.base_url)
-            .and_then(|url| url.join(&CONFIGURATION.tachi.import));
-        if let Err(err) = result {
-            error!("Could not parse Tachi import URL: {err:#}");
-            std::process::exit(1);
-        }
+pub static TACHI_STATUS_URL: LazyLock<String> = LazyLock::new(|| {
+    let result = Url::parse(&CONFIGURATION.tachi.base_url)
+        .and_then(|url| url.join(&CONFIGURATION.tachi.status));
+    if let Err(err) = result {
+        error!("Could not parse Tachi status URL: {err:#}");
+        std::process::exit(1);
+    }
 
-        result.unwrap().to_string()
-    };
-    pub static ref TACHI_PBS_URL: String = {
-        let result = Url::parse(&CONFIGURATION.tachi.base_url)
-            .and_then(|url| url.join(&CONFIGURATION.tachi.pbs));
-        if let Err(err) = result {
-            error!("Could not parse Tachi import URL: {err:#}");
-            std::process::exit(1);
-        }
+    result.unwrap().to_string()
+});
 
-        result
-            .unwrap()
-            .to_string()
-            .replace("%7B", "{")
-            .replace("%7D", "}")
-    };
-}
+pub static TACHI_IMPORT_URL: LazyLock<String> = LazyLock::new(|| {
+    let result = Url::parse(&CONFIGURATION.tachi.base_url)
+        .and_then(|url| url.join(&CONFIGURATION.tachi.import));
+    if let Err(err) = result {
+        error!("Could not parse Tachi import URL: {err:#}");
+        std::process::exit(1);
+    }
 
-fn init_logger() {
-    env_logger::builder()
-        .filter_level(::log::LevelFilter::Error)
-        .filter_module(
-            "mikado",
-            if cfg!(debug_assertions) {
-                ::log::LevelFilter::Debug
-            } else {
-                ::log::LevelFilter::Info
-            },
-        )
-        .parse_default_env()
-        .target(env_logger::Target::Pipe(Box::new(Logger::new())))
-        .format(|f, record| {
-            use crate::log::{colored_level, max_target_width, Padded};
-            use std::io::Write;
+    result.unwrap().to_string()
+});
 
-            let target = record.target();
-            let max_width = max_target_width(target);
+pub static TACHI_PBS_URL: LazyLock<String> = LazyLock::new(|| {
+    let result = Url::parse(&CONFIGURATION.tachi.base_url)
+        .and_then(|url| url.join(&CONFIGURATION.tachi.pbs));
+    if let Err(err) = result {
+        error!("Could not parse Tachi PBS URL: {err:#}");
+        std::process::exit(1);
+    }
 
-            let mut style = f.style();
-            let level = colored_level(&mut style, record.level());
-
-            let mut style = f.style();
-            let target = style.set_bold(true).value(Padded {
-                value: target,
-                width: max_width,
-            });
-
-            let time = chrono::Local::now().format("%d/%m/%Y %H:%M:%S");
-
-            writeln!(f, "[{time}] {level} {target} -> {}", record.args())
-        })
-        .init();
-}
+    result
+        .unwrap()
+        .to_string()
+        .replace("%7B", "{")
+        .replace("%7D", "}")
+});
 
 fn print_infos() {
     info!(
@@ -152,26 +120,30 @@ fn check_for_update() -> anyhow::Result<()> {
     let latest_commit_hash = helpers::request_agent()
         .get("https://api.github.com/repos/adamaq01/mikado/releases/latest")
         .call()?
-        .into_json::<serde_json::Value>()?
+        .body_mut()
+        .read_json::<serde_json::Value>()?
         .get("tag_name")
         .and_then(|value| value.as_str())
-        .ok_or(anyhow::anyhow!("Could not get latest release tag name"))
+        .ok_or_else(|| anyhow::anyhow!("Could not get latest release tag name"))
         .and_then(|tag| {
             helpers::request_agent()
                 .get(&format!(
                     "https://api.github.com/repos/adamaq01/mikado/git/refs/tags/{tag}"
                 ))
                 .call()?
-                .into_json::<serde_json::Value>()?
+                .body_mut()
+                .read_json::<serde_json::Value>()?
                 .get("object")
                 .and_then(|value| value.get("sha"))
                 .and_then(|value| value.as_str())
                 .map(|value| value.to_string())
-                .ok_or(anyhow::anyhow!("Could not get latest release commit hash"))
+                .ok_or_else(|| anyhow::anyhow!("Could not get latest release commit hash"))
         })?;
 
     if commit_hash != latest_commit_hash && !cfg!(debug_assertions) {
-        info!("A newer version of Mikado is available at https://github.com/adamaq01/mikado/releases/latest");
+        info!(
+            "A newer version of Mikado is available at https://github.com/adamaq01/mikado/releases/latest"
+        );
     }
 
     Ok(())
@@ -186,13 +158,18 @@ unsafe fn avs_ea3_boot_startup_hook(node: *const ()) -> i32 {
     call_original!(node)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 #[allow(non_snake_case, unused_variables)]
-extern "system" fn DllMain(dll_module: HINSTANCE, call_reason: DWORD, reserved: LPVOID) -> BOOL {
+extern "system" fn DllMain(
+    dll_module: HINSTANCE,
+    call_reason: u32,
+    reserved: *mut core::ffi::c_void,
+) -> BOOL {
     match call_reason {
         DLL_PROCESS_ATTACH => {
-            unsafe { AllocConsole() };
-            init_logger();
+            let _ = unsafe { AllocConsole() };
+            Logger::new().init();
+            panic_log::initialize_hook(panic_log::Configuration::default());
 
             print_infos();
             if let Err(err) = check_for_update() {

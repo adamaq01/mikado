@@ -1,17 +1,5 @@
-#![allow(dead_code)]
-
-#[derive(Debug, Copy, Clone)]
-#[repr(C)]
-pub enum NodeData {
-    Int(i32),
-    Float(f32),
-    Pointer(*const u8),
-}
-
 #[crochet::load("avs2-core.dll")]
 extern "C" {
-    #[symbol("XCgsqzn0000091")]
-    pub fn property_destroy(property: *mut ()) -> i32;
     #[symbol("XCgsqzn000009a")]
     pub fn property_set_flag(property: *mut (), set_flags: u32, clear_flags: u32) -> u32;
     #[symbol("XCgsqzn000009d")]
@@ -20,25 +8,8 @@ extern "C" {
     pub fn property_query_size(property: *const ()) -> i32;
     #[symbol("XCgsqzn00000a1")]
     pub fn property_search(property: *const (), node: *const (), path: *const u8) -> *mut ();
-    #[symbol("XCgsqzn00000a2")]
-    pub fn property_node_create(
-        property: *mut (),
-        node: *mut (),
-        node_type: NodeType,
-        path: *const u8,
-        data: NodeData,
-    ) -> *mut ();
-    #[symbol("XCgsqzn00000a3")]
-    pub fn property_node_remove(node: *mut ()) -> i32;
     #[symbol("XCgsqzn00000a7")]
     pub fn property_node_name(node: *const (), buffer: *mut u8, size: u32) -> i32;
-    #[symbol("XCgsqzn00000ab")]
-    pub fn property_node_read(
-        node: *const (),
-        node_type: NodeType,
-        data: *mut (),
-        size: u32,
-    ) -> i32;
     #[symbol("XCgsqzn00000af")]
     pub fn property_node_refer(
         property: *const (),
@@ -52,6 +23,7 @@ extern "C" {
     pub fn property_mem_write(property: *mut (), data: *mut u8, size: u32) -> i32;
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u32)]
 pub enum NodeType {

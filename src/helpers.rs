@@ -1,12 +1,12 @@
 use crate::mikado::CURRENT_USER;
+use crate::sys::{NodeType, property_node_refer};
 use crate::types::user::{Profile, User};
-use crate::sys::{property_node_refer, NodeType};
 use crate::{CARD_PROFILES, CONFIGURATION};
 use anyhow::Result;
 use log::{debug, error};
 use serde::{Deserialize, Serialize};
+use std::ffi::c_char;
 use std::fmt::Debug;
-use winapi::ctypes::c_char;
 
 static USER_AGENT: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
     format!(
@@ -20,10 +20,12 @@ pub fn request_agent() -> ureq::Agent {
     let timeout = CONFIGURATION.general.timeout;
     let timeout = if timeout > 10000 { 10000 } else { timeout };
 
-    ureq::builder()
-        .timeout(std::time::Duration::from_millis(timeout))
-        .user_agent(&USER_AGENT)
-        .build()
+    let config = ureq::Agent::config_builder()
+        .timeout_global(Some(std::time::Duration::from_millis(timeout)))
+        .user_agent(USER_AGENT.as_str())
+        .build();
+
+    ureq::Agent::new_with_config(config)
 }
 
 fn request<T>(
@@ -31,7 +33,7 @@ fn request<T>(
     url: impl AsRef<str>,
     key: impl AsRef<str>,
     body: Option<T>,
-) -> Result<ureq::Response>
+) -> Result<ureq::http::Response<ureq::Body>>
 where
     T: Serialize + Debug,
 {
@@ -42,24 +44,39 @@ where
     debug!("{method} request to {url} with body: {body:#?}");
 
     let authorization = format!("Bearer {}", key.as_ref());
-    let request = agent
-        .request(method, url)
-        .set("Authorization", authorization.as_str());
+    let request = ureq::http::Request::builder()
+        .method(method)
+        .uri(url)
+        .header("Authorization", authorization.as_str());
     let response = match body {
-        Some(body) => request.send_json(body),
-        None => request.call(),
+        Some(body) => {
+            let json = serde_json::to_vec(&body)?;
+            let request = request
+                .header("Content-Type", "application/json")
+                .body(json)?;
+            agent.run(request)
+        }
+        None => {
+            let request = request.body(())?;
+            agent.run(request)
+        }
     }
     .map_err(|err| anyhow::anyhow!("Could not reach Tachi API: {:#}", err))?;
 
     Ok(response)
 }
 
-pub fn call_tachi<T>(method: impl AsRef<str>, url: impl AsRef<str>, key: impl AsRef<str>, body: Option<T>) -> Result<()>
+pub fn call_tachi<T>(
+    method: impl AsRef<str>,
+    url: impl AsRef<str>,
+    key: impl AsRef<str>,
+    body: Option<T>,
+) -> Result<()>
 where
     T: Serialize + Debug,
 {
-    let response = request(method, url, key, body)?;
-    let response: serde_json::Value = response.into_json()?;
+    let mut response = request(method, url, key, body)?;
+    let response: serde_json::Value = response.body_mut().read_json()?;
     debug!("Tachi API response: {response:#?}");
 
     Ok(())
@@ -75,8 +92,8 @@ where
     T: Serialize + Debug,
     R: for<'de> Deserialize<'de> + Debug,
 {
-    let response = request(method, url, key, body)?;
-    let response = response.into_json()?;
+    let mut response = request(method, url, key, body)?;
+    let response = response.body_mut().read_json()?;
     debug!("Tachi API response: {response:#?}");
 
     Ok(response)

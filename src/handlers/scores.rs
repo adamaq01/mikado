@@ -1,6 +1,8 @@
 use crate::types::game::GameScores;
-use crate::types::tachi::{HitMeta, Import, ImportMeta, ImportScore, Judgements, TachiDifficulty, TachiLamp};
-use crate::{helpers, mikado, TACHI_IMPORT_URL};
+use crate::types::tachi::{
+    HitMeta, Import, ImportMeta, ImportScore, Judgements, TachiDifficulty, TachiLamp,
+};
+use crate::{TACHI_IMPORT_URL, helpers, mikado};
 use anyhow::Result;
 use either::Either;
 use log::info;
@@ -21,7 +23,10 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
         Either::Right(tracks) => tracks,
     };
 
-    let version = mikado::GAME_PROPERTIES.get().map(|p| p.version()).unwrap_or_default();
+    let version = mikado::GAME_PROPERTIES
+        .get()
+        .map(|p| p.version())
+        .unwrap_or_default();
 
     let time_achieved = std::time::UNIX_EPOCH
         .elapsed()
@@ -62,7 +67,12 @@ pub fn process_scores(scores: GameScores) -> Result<()> {
         scores,
     };
 
-    helpers::call_tachi("POST", TACHI_IMPORT_URL.as_str(), &user.profile.api_key, Some(import))?;
+    helpers::call_tachi(
+        "POST",
+        TACHI_IMPORT_URL.as_str(),
+        &user.profile.api_key,
+        Some(import),
+    )?;
     info!("Successfully imported score(s) for card {}", user.card_id);
 
     Ok(())

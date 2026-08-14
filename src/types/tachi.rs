@@ -1,6 +1,6 @@
+use super::GameVersion;
 use num_enum::{FromPrimitive, IntoPrimitive};
 use serde::{Deserialize, Serialize};
-use super::GameVersion;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Import {
@@ -137,7 +137,9 @@ impl TachiLamp {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, FromPrimitive, IntoPrimitive, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, Eq, PartialEq, Hash, FromPrimitive, IntoPrimitive, Serialize, Deserialize,
+)]
 #[repr(u32)]
 pub enum TachiDifficulty {
     #[num_enum(default)]

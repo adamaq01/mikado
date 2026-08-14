@@ -3,14 +3,14 @@ mod ext;
 use crate::types::cloudlink::{Chart, Score};
 use crate::types::tachi::{TachiDifficulty, TachiLamp};
 use crate::types::user::User;
-use crate::{helpers, mikado, TACHI_PBS_URL};
+use crate::{TACHI_PBS_URL, helpers, mikado};
 use anyhow::Result;
 use dynfmt::Format;
 use ext::HashMapExt;
 use kbinxml::{Node, Value, ValueArray};
 use log::info;
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 fn build_response_base(scores: Vec<Node>) -> Node {
     Node::with_nodes(
@@ -26,25 +26,27 @@ fn build_response_base(scores: Vec<Node>) -> Node {
 pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
     let url = dynfmt::SimpleCurlyFormat.format(TACHI_PBS_URL.as_str(), [user.tachi_id])?;
 
-    let response: serde_json::Value = helpers::request_tachi("GET", url, &user.profile.api_key, None::<()>)?;
-    let body = response["body"].as_object().ok_or(anyhow::anyhow!(
-        "Could not parse response body from Tachi PBs API"
-    ))?;
+    let response: serde_json::Value =
+        helpers::request_tachi("GET", url, &user.profile.api_key, None::<()>)?;
+    let body = response["body"]
+        .as_object()
+        .ok_or_else(|| anyhow::anyhow!("Could not parse response body from Tachi PBs API"))?;
     let pbs = body["pbs"]
         .as_array()
-        .ok_or(anyhow::anyhow!("Could not parse PBs from Tachi PBs API"))?;
+        .ok_or_else(|| anyhow::anyhow!("Could not parse PBs from Tachi PBs API"))?;
     let charts = body["charts"]
         .as_array()
-        .ok_or(anyhow::anyhow!("Could not parse charts from Tachi PBs API"))?;
+        .ok_or_else(|| anyhow::anyhow!("Could not parse charts from Tachi PBs API"))?;
     let charts = charts
         .iter()
         .map(|chart| {
-            let chart_id = chart["chartID"].as_str().ok_or(anyhow::anyhow!(
-                "Could not parse chart ID from Tachi PBs API"
-            ))?;
-            let song_id = chart["data"]["inGameID"].as_u64().ok_or(anyhow::anyhow!(
-                "Could not parse ingame ID from Tachi PBs API"
-            ))? as u32;
+            let chart_id = chart["chartID"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("Could not parse chart ID from Tachi PBs API"))?;
+            let song_id = chart["data"]["inGameID"]
+                .as_u64()
+                .ok_or_else(|| anyhow::anyhow!("Could not parse ingame ID from Tachi PBs API"))?
+                as u32;
             let difficulty =
                 match serde_json::from_value::<TachiDifficulty>(chart["difficulty"].clone()) {
                     Ok(difficulty) => u32::from(difficulty) as u8,
@@ -60,18 +62,21 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
         })
         .collect::<Result<HashMap<&str, Chart>>>()?;
 
-    let version = mikado::GAME_PROPERTIES.get().map(|p| p.version()).unwrap_or_default();
-    let has_maxxive = mikado::GAME_PROPERTIES.get().map(|p| p.has_maxxive_support()).unwrap_or_default();
+    let game_properties = mikado::GAME_PROPERTIES.get();
+    let version = game_properties.map(|p| p.version()).unwrap_or_default();
+    let has_maxxive = game_properties
+        .map(|p| p.has_maxxive_support())
+        .unwrap_or_default();
 
     let mut scores = HashMap::with_capacity(music.children().len() + pbs.len());
     for pb in music.children() {
         let score = pb
             .children()
             .first()
-            .ok_or(anyhow::anyhow!("Could not find param node"))?;
+            .ok_or_else(|| anyhow::anyhow!("Could not find param node"))?;
         if let Value::Array(ValueArray::U32(value)) = score
             .value()
-            .ok_or(anyhow::anyhow!("Could not find value in param node"))?
+            .ok_or_else(|| anyhow::anyhow!("Could not find value in param node"))?
         {
             let song_id = value[0];
             let difficulty = value[1] as u8;
@@ -85,27 +90,26 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
     }
 
     for pb in pbs {
-        let chart_id = pb["chartID"].as_str().ok_or(anyhow::anyhow!(
-            "Could not parse chart ID from Tachi PBs API"
-        ))?;
+        let chart_id = pb["chartID"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Could not parse chart ID from Tachi PBs API"))?;
         let chart = charts
             .get(chart_id)
-            .ok_or(anyhow::anyhow!("Could not find chart"))?;
-        let score = pb["scoreData"]["score"].as_u64().ok_or(anyhow::anyhow!(
-            "Could not parse PB score from Tachi PBs API"
-        ))?;
+            .ok_or_else(|| anyhow::anyhow!("Could not find chart"))?;
+        let score = pb["scoreData"]["score"]
+            .as_u64()
+            .ok_or_else(|| anyhow::anyhow!("Could not parse PB score from Tachi PBs API"))?;
 
         let lamp = match serde_json::from_value::<TachiLamp>(pb["scoreData"]["lamp"].clone()) {
             Ok(TachiLamp::MaxxiveClear) if !has_maxxive => TachiLamp::ExcessiveClear,
             Ok(lamp) => lamp,
             Err(_) => TachiLamp::Failed,
-        }.to_index(version);
+        }
+        .to_index(version);
 
         let grade = pb["scoreData"]["enumIndexes"]["grade"]
             .as_u64()
-            .ok_or(anyhow::anyhow!(
-                "Could not parse PB grade from Tachi PBs API"
-            ))?
+            .ok_or_else(|| anyhow::anyhow!("Could not parse PB grade from Tachi PBs API"))?
             + 1;
         let grade = if grade >= 11 { 10 } else { grade };
 
@@ -123,7 +127,8 @@ pub fn process_pbs(user: &User, music: &Node) -> Result<Node> {
                 }
             }
             Entry::Vacant(entry) => {
-                let score = Score::from_cloud(version, score as u32, lamp as u8, grade as u8, ex_score);
+                let score =
+                    Score::from_cloud(version, score as u32, lamp as u8, grade as u8, ex_score);
                 entry.insert(score);
             }
         }

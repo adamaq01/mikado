@@ -9,13 +9,13 @@ use log::{debug, error, info, warn};
 use crate::handlers::save::process_save;
 use crate::handlers::scores::process_scores;
 use crate::sys::{
-    property_clear_error, property_mem_write, property_node_name, property_node_refer,
-    property_query_size, property_search, property_set_flag, NodeType,
+    NodeType, property_clear_error, property_mem_write, property_node_name, property_node_refer,
+    property_query_size, property_search, property_set_flag,
 };
+use crate::types::GameProperties;
 use crate::types::game::Property;
 use crate::types::user::User;
-use crate::types::GameProperties;
-use crate::{helpers, CONFIGURATION, TACHI_STATUS_URL};
+use crate::{CONFIGURATION, TACHI_STATUS_URL, helpers};
 
 pub static CURRENT_USER: RwLock<Option<User>> = RwLock::new(None);
 pub static GAME_PROPERTIES: OnceLock<GameProperties> = OnceLock::new();
@@ -90,29 +90,31 @@ pub unsafe fn property_mem_read_hook(
     data: *const u8,
     size: u32,
 ) -> *const () {
-    let load = LOAD.load(Ordering::SeqCst);
-    let load_m = LOAD_M.load(Ordering::SeqCst);
-    let common = COMMON.load(Ordering::SeqCst);
-    if !load && !load_m && !common {
-        return call_original!(ptr, something, flags, data, size);
-    }
+    unsafe {
+        let load = LOAD.load(Ordering::SeqCst);
+        let load_m = LOAD_M.load(Ordering::SeqCst);
+        let common = COMMON.load(Ordering::SeqCst);
+        if !load && !load_m && !common {
+            return call_original!(ptr, something, flags, data, size);
+        }
 
-    let bytes = std::slice::from_raw_parts(ptr as *const u8, something as usize).to_vec();
-    match property_mem_read_hook_wrapped(bytes, load, load_m, common) {
-        Some(Ok(response)) => {
-            call_original!(
-                response.as_ptr() as *const (),
-                response.len() as i32,
-                flags,
-                data,
-                size
-            )
+        let bytes = std::slice::from_raw_parts(ptr as *const u8, something as usize).to_vec();
+        match property_mem_read_hook_wrapped(bytes, load, load_m, common) {
+            Some(Ok(response)) => {
+                call_original!(
+                    response.as_ptr() as *const (),
+                    response.len() as i32,
+                    flags,
+                    data,
+                    size
+                )
+            }
+            Some(Err(err)) => {
+                error!("Error while processing an important e-amusement response node: {err:#}");
+                call_original!(ptr, something, flags, data, size)
+            }
+            None => call_original!(ptr, something, flags, data, size),
         }
-        Some(Err(err)) => {
-            error!("Error while processing an important e-amusement response node: {err:#}");
-            call_original!(ptr, something, flags, data, size)
-        }
-        None => call_original!(ptr, something, flags, data, size),
     }
 }
 
@@ -200,8 +202,7 @@ pub unsafe fn property_mem_read_hook_wrapped(
     } else if let Some(music) = load_m.then(|| root.pointer(&["game", "music"])).flatten() {
         if let Some(user) = helpers::get_current_user() {
             Some((|| {
-                let response =
-                    crate::cloudlink::process_pbs(&user, music)?;
+                let response = crate::cloudlink::process_pbs(&user, music)?;
                 let response = build_response(&original_signature, response, encoding)?;
                 LOAD_M.store(false, Ordering::Relaxed);
 
@@ -217,72 +218,45 @@ pub unsafe fn property_mem_read_hook_wrapped(
 
 #[crochet::hook("avs2-core.dll", "XCgsqzn0000091")]
 pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
-    if property.is_null() {
-        return 0;
-    }
+    unsafe {
+        if property.is_null() {
+            return 0;
+        }
 
-    let node = property_search(property, std::ptr::null(), b"/call/game\0".as_ptr());
-    let node = if node.is_null() {
-        property_search(property, std::ptr::null(), b"/call/cardmng\0".as_ptr())
-    } else {
-        node
-    };
-    if node.is_null() {
-        property_clear_error(property);
-        return call_original!(property);
-    }
-
-    let mut buffer = [0u8; 256];
-    let result = property_node_name(node, buffer.as_mut_ptr(), buffer.len() as u32);
-    if result < 0 {
-        return call_original!(property);
-    }
-
-    let name = {
-        let result = std::str::from_utf8(&buffer[0..32]);
-        if let Err(err) = result {
-            error!("Could not convert buffer to string: {err:#}");
+        let node = property_search(property, std::ptr::null(), b"/call/game\0".as_ptr());
+        let node = if node.is_null() {
+            property_search(property, std::ptr::null(), b"/call/cardmng\0".as_ptr())
+        } else {
+            node
+        };
+        if node.is_null() {
+            property_clear_error(property);
             return call_original!(property);
         }
 
-        result.unwrap().replace('\0', "")
-    };
-    if name != "game" && name != "cardmng" {
-        return call_original!(property);
-    }
-
-    let result = property_node_refer(
-        property,
-        node,
-        b"method@\0".as_ptr(),
-        NodeType::NodeAttr,
-        buffer.as_mut_ptr() as *mut (),
-        256,
-    );
-    if result < 0 {
-        return call_original!(property);
-    }
-
-    let method = {
-        let result = std::str::from_utf8(&buffer[0..11]);
-        if let Err(err) = result {
-            error!("Could not convert buffer to string: {err:#}");
+        let mut buffer = [0u8; 256];
+        let result = property_node_name(node, buffer.as_mut_ptr(), buffer.len() as u32);
+        if result < 0 {
             return call_original!(property);
         }
 
-        result.unwrap().replace('\0', "")
-    };
-    debug!("Intercepted '{name}' method: {method}");
+        let name = {
+            let result = std::str::from_utf8(&buffer[0..32]);
+            if let Err(err) = result {
+                error!("Could not convert buffer to string: {err:#}");
+                return call_original!(property);
+            }
 
-    if name == "cardmng" {
-        if method != "inquire" {
+            result.unwrap().replace('\0', "")
+        };
+        if name != "game" && name != "cardmng" {
             return call_original!(property);
         }
 
         let result = property_node_refer(
             property,
             node,
-            b"cardid@\0".as_ptr(),
+            b"method@\0".as_ptr(),
             NodeType::NodeAttr,
             buffer.as_mut_ptr() as *mut (),
             256,
@@ -291,8 +265,8 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
             return call_original!(property);
         }
 
-        let card_id = {
-            let result = std::str::from_utf8(&buffer[..32]);
+        let method = {
+            let result = std::str::from_utf8(&buffer[0..11]);
             if let Err(err) = result {
                 error!("Could not convert buffer to string: {err:#}");
                 return call_original!(property);
@@ -300,118 +274,161 @@ pub unsafe fn property_destroy_hook(property: *mut ()) -> i32 {
 
             result.unwrap().replace('\0', "")
         };
+        debug!("Intercepted '{name}' method: {method}");
 
-        let profile = helpers::get_profile(&card_id);
-        if profile.is_none() {
-            warn!("No profile for card {card_id}");
-        }
-
-        // Try to reach Tachi API
-        fn get_tachi_user(key: impl AsRef<str>) -> Result<u64> {
-            let response: serde_json::Value =
-                helpers::request_tachi("GET", TACHI_STATUS_URL.as_str(), key, None::<()>)?;
-
-            response["body"]["whoami"]
-                .as_u64()
-                .ok_or(anyhow::anyhow!("Couldn't parse user from Tachi response"))
-        }
-
-        let tachi_id = profile.as_ref().and_then(|profile| {
-            match get_tachi_user(&profile.api_key) {
-                Ok(user) => {
-                    debug!("Tachi API reached, set current user to {user}");
-                    Some(user)
-                }
-                Err(e) => {
-                    warn!("did not set Tachi user: {e}");
-                    None
-                }
+        if name == "cardmng" {
+            if method != "inquire" {
+                return call_original!(property);
             }
-        });
 
-        if let Ok(mut guard) = CURRENT_USER.write() {
-            *guard = tachi_id.and_then(|tachi_id| {
-                profile.map(|profile| {
-                    info!("Setting current profile to \"{}\": card is {}, tachi is {}", &profile.name, card_id, tachi_id);
-                    User {
-                        tachi_id,
-                        card_id,
-                        profile,
-                    }
-                })
-            });
-        } else {
-            warn!("Could not acquire write lock on current user");
-        }
+            let result = property_node_refer(
+                property,
+                node,
+                b"cardid@\0".as_ptr(),
+                NodeType::NodeAttr,
+                buffer.as_mut_ptr() as *mut (),
+                256,
+            );
+            if result < 0 {
+                return call_original!(property);
+            }
 
-        return call_original!(property);
-    }
+            let card_id = {
+                let result = std::str::from_utf8(&buffer[..32]);
+                if let Err(err) = result {
+                    error!("Could not convert buffer to string: {err:#}");
+                    return call_original!(property);
+                }
 
-    let prefix = GAME_PROPERTIES.get().map(|p| p.version().method_prefix()).unwrap_or("sv6");
-    let method = method.strip_prefix(prefix).and_then(|s| s.strip_prefix('_')).unwrap_or("");
+                result.unwrap().replace('\0', "")
+            };
 
-    if CONFIGURATION.general.inject_cloud_pbs {
-        if method == "load_m" {
-            LOAD_M.store(true, Ordering::Relaxed);
-        } else if method == "common" {
-            COMMON.store(true, Ordering::Relaxed);
-        } else if method == "load" {
-            LOAD.store(true, Ordering::Relaxed);
-        }
-    }
+            let profile = helpers::get_profile(&card_id);
+            if profile.is_none() {
+                warn!("No profile for card {card_id}");
+            }
 
-    if method != "save_m" && (!CONFIGURATION.general.export_class || method != "save") {
-        return call_original!(property);
-    }
+            // Try to reach Tachi API
+            fn get_tachi_user(key: impl AsRef<str>) -> Result<u64> {
+                let response: serde_json::Value =
+                    helpers::request_tachi("GET", TACHI_STATUS_URL.as_str(), key, None::<()>)?;
 
-    property_set_flag(property, 0x800, 0x008);
+                response["body"]["whoami"]
+                    .as_u64()
+                    .ok_or_else(|| anyhow::anyhow!("Couldn't parse user from Tachi response"))
+            }
 
-    let size = property_query_size(property);
-    if size < 0 {
-        property_set_flag(property, 0x008, 0x800);
-        return call_original!(property);
-    }
+            let tachi_id =
+                profile
+                    .as_ref()
+                    .and_then(|profile| match get_tachi_user(&profile.api_key) {
+                        Ok(user) => {
+                            debug!("Tachi API reached, set current user to {user}");
+                            Some(user)
+                        }
+                        Err(e) => {
+                            warn!("did not set Tachi user: {e}");
+                            None
+                        }
+                    });
 
-    let buffer = vec![0u8; size as usize];
-    let result = property_mem_write(property, buffer.as_ptr() as *mut u8, buffer.len() as u32);
-    property_set_flag(property, 0x008, 0x800);
-    if result < 0 {
-        return call_original!(property);
-    }
+            if let Ok(mut guard) = CURRENT_USER.write() {
+                *guard = tachi_id.and_then(|tachi_id| {
+                    profile.map(|profile| {
+                        info!(
+                            "Setting current profile to \"{}\": card is {}, tachi is {}",
+                            &profile.name, card_id, tachi_id
+                        );
+                        User {
+                            tachi_id,
+                            card_id,
+                            profile,
+                        }
+                    })
+                });
+            } else {
+                warn!("Could not acquire write lock on current user");
+            }
 
-    // Read buf to string
-    let property_str = {
-        let result = std::str::from_utf8(&buffer);
-        if let Err(err) = result {
-            error!("Could not convert buffer to string: {err:#}");
             return call_original!(property);
         }
 
-        result.unwrap()
-    };
+        let prefix = GAME_PROPERTIES
+            .get()
+            .map(|p| p.version().method_prefix())
+            .unwrap_or("sv6");
+        let method = method
+            .strip_prefix(prefix)
+            .and_then(|s| s.strip_prefix('_'))
+            .unwrap_or("");
 
-    debug!("Processing property: {property_str}");
-    if let Err(err) = match method {
-        "save_m" => serde_json::from_str::<Property>(property_str)
-            .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
-            .and_then(|prop| {
-                process_scores(
-                    prop.call.game.left()
-                        .ok_or(anyhow::anyhow!("Could not process scores property"))?,
-                )
-            }),
-        "save" => serde_json::from_str::<Property>(property_str)
-            .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
-            .and_then(|prop| {
-                process_save(
-                    prop.call.game.right()
-                        .ok_or(anyhow::anyhow!("Could not process save property"))?,
-                )
-            }),
-        _ => unreachable!(),
-    } {
-        error!("{err:#}");
+        if CONFIGURATION.general.inject_cloud_pbs {
+            if method == "load_m" {
+                LOAD_M.store(true, Ordering::Relaxed);
+            } else if method == "common" {
+                COMMON.store(true, Ordering::Relaxed);
+            } else if method == "load" {
+                LOAD.store(true, Ordering::Relaxed);
+            }
+        }
+
+        if method != "save_m" && (!CONFIGURATION.general.export_class || method != "save") {
+            return call_original!(property);
+        }
+
+        property_set_flag(property, 0x800, 0x008);
+
+        let size = property_query_size(property);
+        if size < 0 {
+            property_set_flag(property, 0x008, 0x800);
+            return call_original!(property);
+        }
+
+        let buffer = vec![0u8; size as usize];
+        let result = property_mem_write(property, buffer.as_ptr() as *mut u8, buffer.len() as u32);
+        property_set_flag(property, 0x008, 0x800);
+        if result < 0 {
+            return call_original!(property);
+        }
+
+        // Read buf to string
+        let property_str = {
+            let result = std::str::from_utf8(&buffer);
+            if let Err(err) = result {
+                error!("Could not convert buffer to string: {err:#}");
+                return call_original!(property);
+            }
+
+            result.unwrap()
+        };
+
+        debug!("Processing property: {property_str}");
+        if let Err(err) =
+            match method {
+                "save_m" => {
+                    serde_json::from_str::<Property>(property_str)
+                        .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
+                        .and_then(|prop| {
+                            process_scores(prop.call.game.left().ok_or_else(|| {
+                                anyhow::anyhow!("Could not process scores property")
+                            })?)
+                        })
+                }
+                "save" => {
+                    serde_json::from_str::<Property>(property_str)
+                        .map_err(|err| anyhow::anyhow!("Could not parse property: {err:#}"))
+                        .and_then(|prop| {
+                            process_save(prop.call.game.right().ok_or_else(|| {
+                                anyhow::anyhow!("Could not process save property")
+                            })?)
+                        })
+                }
+                _ => unreachable!(),
+            }
+        {
+            error!("{err:#}");
+        }
+
+        call_original!(property)
     }
-
-    call_original!(property)
 }
