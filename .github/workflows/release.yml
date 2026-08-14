@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: windows-latest
+    name: Build (${{ matrix.name }})
+
+    strategy:
+      matrix:
+        include:
+          - name: win-64
+            target: x86_64-pc-windows-msvc
+            artifact_name: mikado
+          - name: win-7
+            target: x86_64-win7-windows-msvc
+            artifact_name: mikado-win7
+            nightly: true
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+
+    - name: Cache
+      uses: Swatinem/rust-cache@v2
+      with:
+          key: ${{ matrix.target }}
+    
+    - name: Install nightly Rust
+      if: ${{ matrix.nightly }}
+      uses: dtolnay/rust-toolchain@nightly
+    
+    - name: Install rust-src
+      if: ${{ matrix.nightly }}
+      run: rustup component add rust-src --toolchain nightly-x86_64-pc-windows-msvc
+
+    - name: Build (win-64)
+      if: ${{ matrix.name == 'win-64' }}
+      run: cargo build --release --target ${{ matrix.target }}
+
+    - name: Build (win-7)
+      if: ${{ matrix.name == 'win-7' }}
+      run: cargo +nightly build --release -Z build-std=panic_abort,std --target ${{ matrix.target }}
+
+    - name: Rename artifact
+      if: ${{ matrix.artifact_name != 'mikado' }}
+      run: mv target/${{ matrix.target }}/release/mikado.dll target/${{ matrix.target }}/release/${{ matrix.artifact_name }}.dll
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v7
+      with:
+        archive: false
+        path: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}.dll
+
+  release:
+    needs: build
+    runs-on: windows-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download builds
+        uses: actions/download-artifact@v8
+        with:   
+          path: artifacts
+          merge-multiple: true
+
+      - name: Upload artifacts to release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            artifacts/mikado.dll
+            artifacts/mikado-win7.dll
