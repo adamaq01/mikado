@@ -3,7 +3,7 @@
 enable = true
 # Whether the hook should export your class (skill level) or not
 export_class = true
-# Whether the hook should should inject your Tachi PBs in place of Cloud PBs
+# Whether the hook should inject your Tachi PBs in place of Cloud PBs
 inject_cloud_pbs = true
 # Timeout for web requests, in milliseconds
 timeout = 3000
@@ -23,7 +23,7 @@ status = '/api/v1/status'
 # Tachi score import endpoint
 import = '/ir/direct-manual/import'
 # Tachi pbs endpoint
-pbs = '/api/v1/users/{}/games/sdvx/Single/pbs/all'
+pbs = '/api/v1/users/{}/games/sdvx/pbs/all'
 # Your Tachi API key
 api_key = 'your-key-here'
 
