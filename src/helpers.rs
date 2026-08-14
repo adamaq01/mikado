@@ -8,12 +8,21 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use winapi::ctypes::c_char;
 
+static USER_AGENT: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    format!(
+        "mikado-{}/{}",
+        env!("CARGO_PKG_VERSION"),
+        option_env!("VERGEN_GIT_DESCRIBE").unwrap_or("unknown")
+    )
+});
+
 pub fn request_agent() -> ureq::Agent {
     let timeout = CONFIGURATION.general.timeout;
     let timeout = if timeout > 10000 { 10000 } else { timeout };
 
     ureq::builder()
         .timeout(std::time::Duration::from_millis(timeout))
+        .user_agent(&USER_AGENT)
         .build()
 }
 
